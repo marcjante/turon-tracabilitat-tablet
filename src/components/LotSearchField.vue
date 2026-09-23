@@ -46,40 +46,41 @@ function canviar() {
 
 <template>
   <div>
-    <label class="mb-1 block text-sm font-medium text-slate-700">
+    <span class="mb-1.5 block text-base font-bold text-slate-800">
       {{ label }}<span v-if="required" class="text-red-500"> *</span>
-    </label>
+    </span>
 
-    <div v-if="seleccionat" class="flex items-center justify-between rounded-lg border border-turon-gold bg-turon-gold-light/30 px-3 py-2">
-      <span class="font-medium text-turon-black">{{ seleccionat.codi }}</span>
-      <button type="button" class="text-sm font-medium text-turon-black" @click="canviar">Canviar</button>
+    <div v-if="seleccionat" class="flex items-center justify-between rounded-lg border-2 border-turon-gold bg-turon-gold-light/30 px-3 py-3">
+      <span class="text-lg font-bold text-turon-black">{{ seleccionat.codi }}</span>
+      <button type="button" class="text-base font-bold text-turon-black underline" @click="canviar">Canviar</button>
     </div>
     <div v-else class="space-y-2">
+      <p class="text-sm text-slate-500">Escriu el número de lot i prem "Cercar"</p>
       <div class="flex gap-2">
         <input
           v-model="query"
           type="text"
-          placeholder="Codi del lot…"
-          class="w-full rounded-lg border border-slate-300 px-3 py-2"
+          placeholder="Número de lot…"
+          class="w-full rounded-lg border-2 border-slate-300 px-3 py-2"
           @keyup.enter="cercar"
         />
-        <button type="button" class="shrink-0 rounded-lg bg-slate-200 px-4 text-sm font-medium active:bg-slate-300" @click="cercar">
-          Cercar
+        <button type="button" class="shrink-0 rounded-lg bg-slate-200 px-5 text-base font-bold active:bg-slate-300" @click="cercar">
+          🔍 Cercar
         </button>
       </div>
-      <ul v-if="resultats.length" class="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1">
+      <ul v-if="resultats.length" class="max-h-56 space-y-1 overflow-y-auto rounded-lg border-2 border-slate-200 bg-white p-1">
         <li v-for="l in resultats" :key="l.id">
           <button
             type="button"
-            class="w-full rounded-md px-2 py-2 text-left text-sm active:bg-slate-100"
+            class="w-full rounded-md px-3 py-3 text-left text-base active:bg-slate-100"
             @click="triar(l)"
           >
-            <span class="font-medium">{{ l.codi }}</span>
-            <span class="ml-2 text-xs text-slate-500">{{ l.tipus }}</span>
+            <span class="font-bold">{{ l.codi }}</span>
+            <span class="ml-2 text-sm text-slate-500">{{ l.tipus }}</span>
           </button>
         </li>
       </ul>
-      <p v-else-if="cercat && !cercant" class="text-sm text-slate-400">Cap lot trobat.</p>
+      <p v-else-if="cercat && !cercant" class="text-base text-slate-400">No s'ha trobat cap lot amb aquest número.</p>
     </div>
   </div>
 </template>

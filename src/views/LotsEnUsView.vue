@@ -99,58 +99,62 @@ async function exportar() {
 
 <template>
   <div class="space-y-5">
-    <form class="space-y-4 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">
-      <FormField label="Ingredient" required>
-        <select v-model="form.ingredient_id" class="w-full rounded-lg border border-slate-300 px-3 py-2" @change="carregarLotsIngredient">
-          <option value="" disabled>Selecciona…</option>
+    <p class="rounded-xl bg-white p-3 text-base text-slate-600 shadow-sm">
+      Fes-ho servir quan comences a obrir/fer servir un saco o pot nou d'un ingredient.
+    </p>
+
+    <form class="space-y-5 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">
+      <FormField label="🥣 Quin ingredient comences a fer servir?" required>
+        <select v-model="form.ingredient_id" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" @change="carregarLotsIngredient">
+          <option value="" disabled>Tria-ho de la llista…</option>
           <option v-for="i in ingredients" :key="i.id" :value="i.id">{{ i.nom }}</option>
         </select>
       </FormField>
 
-      <FormField label="Lot" required :hint="form.ingredient_id && !lotsIngredient.length ? 'No hi ha lots registrats per a aquest ingredient (ficha 1)' : ''">
-        <select v-model="form.lot_id" class="w-full rounded-lg border border-slate-300 px-3 py-2" :disabled="!form.ingredient_id">
-          <option value="" disabled>Selecciona…</option>
+      <FormField label="🔢 Quin lot és?" required :hint="form.ingredient_id && !lotsIngredient.length ? 'No hi ha cap lot apuntat d\'aquest ingredient (mira la ficha 1)' : ''">
+        <select v-model="form.lot_id" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" :disabled="!form.ingredient_id">
+          <option value="" disabled>Tria-ho de la llista…</option>
           <option v-for="l in lotsIngredient" :key="l.id" :value="l.id">{{ l.codi }} (caduca {{ l.caducitat }})</option>
         </select>
       </FormField>
 
-      <FormField label="Inici" required>
-        <input v-model="form.inici" type="datetime-local" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+      <FormField label="🕐 A quina hora ho has començat?" required>
+        <input v-model="form.inici" type="datetime-local" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" />
       </FormField>
 
-      <FormField label="Observacions">
-        <textarea v-model="form.observacions" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+      <FormField label="✏️ Vols dir alguna cosa més? (no cal)">
+        <textarea v-model="form.observacions" rows="2" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2"></textarea>
       </FormField>
 
-      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-turon-black py-3 text-base font-semibold text-white disabled:opacity-50">
-        {{ enviant ? 'Obrint…' : 'Obrir lot en ús' }}
+      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-turon-black py-4 text-lg font-bold text-white disabled:opacity-50">
+        {{ enviant ? 'Guardant…' : '✅ Guardar' }}
       </button>
     </form>
 
     <section>
       <div class="mb-2 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-500">Lots oberts actualment</h2>
+        <h2 class="text-base font-bold text-slate-600">Ara mateix s'estan fent servir</h2>
         <button
           type="button"
           :disabled="descarregant"
-          class="text-sm font-medium text-turon-black disabled:opacity-50"
+          class="text-sm font-bold text-turon-black disabled:opacity-50"
           @click="exportar"
         >
-          {{ descarregant ? 'Generant…' : '📥 Descarregar Excel' }}
+          {{ descarregant ? 'Generant…' : '📥 Excel' }}
         </button>
       </div>
-      <p v-if="loading" class="text-sm text-slate-400">Carregant…</p>
+      <p v-if="loading" class="text-base text-slate-400">Carregant…</p>
       <ul v-else class="space-y-2">
-        <li v-for="o in oberts" :key="o.id" class="flex items-center justify-between rounded-xl bg-white p-3 text-sm shadow-sm">
+        <li v-for="o in oberts" :key="o.id" class="flex items-center justify-between rounded-xl bg-white p-3 text-base shadow-sm">
           <div>
-            <div class="font-medium">{{ ingredientNom(o.ingredient_id) }}</div>
+            <div class="font-bold">{{ ingredientNom(o.ingredient_id) }}</div>
             <div class="text-slate-500">des de {{ new Date(o.inici).toLocaleString() }}</div>
           </div>
-          <button type="button" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium active:bg-slate-200" @click="tancar(o.id)">
-            Tancar
+          <button type="button" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold active:bg-slate-200" @click="tancar(o.id)">
+            🔚 S'ha acabat
           </button>
         </li>
-        <li v-if="!oberts.length" class="text-sm text-slate-400">No hi ha cap lot obert.</li>
+        <li v-if="!oberts.length" class="text-base text-slate-400">Ara mateix no hi ha res obert.</li>
       </ul>
     </section>
   </div>

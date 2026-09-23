@@ -6,13 +6,13 @@ const route = useRoute()
 const router = useRouter()
 
 const titles = {
-  entrades: 'Entrada de matèries primeres',
-  'lots-en-us': 'Lots en ús',
-  semielaborats: 'Producció de semielaborats',
-  productes: 'Producció diària',
-  incidencies: 'Canvi de lot / Incidència',
-  traca: 'Traçabilitat',
-  catalegs: 'Catàlegs',
+  entrades: 'He rebut una comanda',
+  'lots-en-us': 'Obro un pot o saco nou',
+  semielaborats: 'He preparat una base',
+  productes: 'He fet productes',
+  incidencies: 'Ha passat algo',
+  traca: 'Buscar un lot',
+  catalegs: 'Configuració',
 }
 </script>
 
@@ -25,12 +25,12 @@ const titles = {
     >
       <button
         type="button"
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-turon-black text-xl text-white active:opacity-80"
+        class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-turon-black text-2xl text-white active:opacity-80"
         @click="router.push({ name: 'home' })"
       >
         ←
       </button>
-      <h1 class="font-heading truncate text-lg font-bold text-turon-black">{{ titles[route.name] || 'Turòn' }}</h1>
+      <h1 class="font-heading truncate text-xl font-bold text-turon-black">{{ titles[route.name] || 'Turòn' }}</h1>
     </header>
     <main class="mx-auto max-w-2xl px-4 py-4 pb-16" :class="{ 'pt-0': route.name === 'home' }">
       <router-view />

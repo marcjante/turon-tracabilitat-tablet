@@ -96,67 +96,74 @@ async function exportar() {
 
 <template>
   <div class="space-y-5">
-    <form class="space-y-4 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">
-      <FormField label="Responsable" required>
-        <input v-model="responsable" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="El teu nom" />
+    <form class="space-y-5 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">
+      <FormField label="🙋 Qui ets?" required>
+        <input v-model="responsable" type="text" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" placeholder="El teu nom" />
       </FormField>
 
-      <FormField label="Elaboració" required>
-        <select v-model="form.elaboracio_id" class="w-full rounded-lg border border-slate-300 px-3 py-2">
-          <option value="" disabled>Selecciona…</option>
+      <FormField label="🥣 Què has fet?" required>
+        <select v-model="form.elaboracio_id" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2">
+          <option value="" disabled>Tria-ho de la llista…</option>
           <option v-for="e in elaboracions" :key="e.id" :value="e.id">{{ e.nom }}</option>
         </select>
       </FormField>
 
       <div class="grid grid-cols-2 gap-3">
-        <FormField label="Quantitat" required>
-          <input v-model="form.quantitat" type="number" step="0.01" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+        <FormField label="⚖️ Quant n'has fet?" required>
+          <input v-model="form.quantitat" type="number" step="0.01" min="0" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" />
         </FormField>
-        <FormField label="Unitat" required>
-          <input v-model="form.unitat" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+        <FormField label="En quina unitat?" required hint="kg, g, unitats...">
+          <input v-model="form.unitat" type="text" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" />
         </FormField>
       </div>
 
-      <FormField label="Elaborat a" required>
-        <input v-model="form.elaborat_at" type="datetime-local" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+      <FormField label="🕐 A quina hora ho has fet?" required>
+        <input v-model="form.elaborat_at" type="datetime-local" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" />
       </FormField>
 
-      <FormField label="Torn" required>
-        <select v-model="form.torn" class="w-full rounded-lg border border-slate-300 px-3 py-2">
-          <option value="mati">Matí</option>
-          <option value="tarda">Tarda</option>
-          <option value="nit">Nit</option>
-        </select>
+      <FormField label="☀️ Quin torn?" required>
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            v-for="t in [{ v: 'mati', l: 'Matí', e: '🌅' }, { v: 'tarda', l: 'Tarda', e: '☀️' }, { v: 'nit', l: 'Nit', e: '🌙' }]"
+            :key="t.v"
+            type="button"
+            class="rounded-xl border-2 p-3 text-center text-base font-bold"
+            :class="form.torn === t.v ? 'border-turon-black bg-turon-black text-white' : 'border-slate-300 text-slate-600'"
+            @click="form.torn = t.v"
+          >
+            {{ t.e }} {{ t.l }}
+          </button>
+        </div>
       </FormField>
 
-      <FormField label="Observacions">
-        <textarea v-model="form.observacions" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+      <FormField label="✏️ Vols dir alguna cosa més? (no cal)">
+        <textarea v-model="form.observacions" rows="2" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2"></textarea>
       </FormField>
 
-      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-turon-black py-3 text-base font-semibold text-white disabled:opacity-50">
-        {{ enviant ? 'Registrant…' : 'Registrar semielaborat' }}
+      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-turon-black py-4 text-lg font-bold text-white disabled:opacity-50">
+        {{ enviant ? 'Guardant…' : '✅ Guardar' }}
       </button>
     </form>
 
     <section>
       <div class="mb-2 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-500">Últims semielaborats</h2>
+        <h2 class="text-base font-bold text-slate-600">El que has fet fa poc</h2>
         <button
           type="button"
           :disabled="descarregant"
-          class="text-sm font-medium text-turon-black disabled:opacity-50"
+          class="text-sm font-bold text-turon-black disabled:opacity-50"
           @click="exportar"
         >
-          {{ descarregant ? 'Generant…' : '📥 Descarregar Excel' }}
+          {{ descarregant ? 'Generant…' : '📥 Excel' }}
         </button>
       </div>
-      <p v-if="loading" class="text-sm text-slate-400">Carregant…</p>
+      <p v-if="loading" class="text-base text-slate-400">Carregant…</p>
       <ul v-else class="space-y-2">
-        <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-sm shadow-sm">
-          <div class="font-medium">{{ r.codi }} — {{ elaboracioNom(r.elaboracio_id) }}</div>
+        <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
+          <div class="font-bold">{{ r.codi }} — {{ elaboracioNom(r.elaboracio_id) }}</div>
           <div class="text-slate-500">{{ r.quantitat }} {{ r.unitat }} · {{ r.torn }} · {{ r.responsable }}</div>
         </li>
-        <li v-if="!recents.length" class="text-sm text-slate-400">Encara no hi ha semielaborats.</li>
+        <li v-if="!recents.length" class="text-base text-slate-400">Encara no hi ha res apuntat.</li>
       </ul>
     </section>
   </div>

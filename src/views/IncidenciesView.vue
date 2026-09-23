@@ -98,68 +98,79 @@ async function exportar() {
 
 <template>
   <div class="space-y-5">
-    <form class="space-y-4 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">
-      <FormField label="Responsable" required>
-        <input v-model="responsable" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="El teu nom" />
+    <form class="space-y-5 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">
+      <FormField label="🙋 Qui ets?" required>
+        <input v-model="responsable" type="text" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" placeholder="El teu nom" />
       </FormField>
 
-      <FormField label="Tipus d'incidència" required>
-        <select v-model="form.tipus" class="w-full rounded-lg border border-slate-300 px-3 py-2">
-          <option value="canvi_lot">Canvi de lot a mig torn</option>
-          <option value="devolucio">Devolució</option>
-          <option value="alerta">Alerta</option>
-          <option value="altra">Altra</option>
-        </select>
+      <FormField label="⚠️ Què ha passat?" required>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="t in [
+              { v: 'canvi_lot', l: 'He canviat de lot', e: '🔄' },
+              { v: 'devolucio', l: 'Devolució', e: '↩️' },
+              { v: 'alerta', l: 'Alerta', e: '🚨' },
+              { v: 'altra', l: 'Altra cosa', e: '❓' },
+            ]"
+            :key="t.v"
+            type="button"
+            class="rounded-xl border-2 p-3 text-center text-base font-bold"
+            :class="form.tipus === t.v ? 'border-turon-black bg-turon-black text-white' : 'border-slate-300 text-slate-600'"
+            @click="form.tipus = t.v"
+          >
+            {{ t.e }} {{ t.l }}
+          </button>
+        </div>
       </FormField>
 
-      <LotSearchField label="Lot afectat" required v-model="form.lot_afectat_id" />
-      <LotSearchField v-if="form.tipus === 'canvi_lot'" label="Lot anterior" v-model="form.lot_anterior_id" />
-      <LotSearchField v-if="form.tipus === 'canvi_lot'" label="Lot nou" v-model="form.lot_nou_id" />
+      <LotSearchField label="🔢 De quin lot es tracta?" required v-model="form.lot_afectat_id" />
+      <LotSearchField v-if="form.tipus === 'canvi_lot'" label="🔢 Quin lot feies servir abans?" v-model="form.lot_anterior_id" />
+      <LotSearchField v-if="form.tipus === 'canvi_lot'" label="🔢 Quin lot fas servir ara?" v-model="form.lot_nou_id" />
 
-      <FormField label="Motiu" required>
-        <textarea v-model="form.motiu" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+      <FormField label="✏️ Explica què ha passat" required>
+        <textarea v-model="form.motiu" rows="3" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2"></textarea>
       </FormField>
 
-      <FormField label="Mesura adoptada">
-        <textarea v-model="form.mesura_adoptada" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+      <FormField label="🛠️ Què has fet per solucionar-ho? (no cal)">
+        <textarea v-model="form.mesura_adoptada" rows="2" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2"></textarea>
       </FormField>
 
-      <FormField label="Comprovació">
-        <label class="flex items-center gap-2">
-          <input v-model="form.comprovacio" type="checkbox" class="h-5 w-5" />
-          <span>S'ha comprovat la incidència</span>
+      <FormField label="✅ Comprovació">
+        <label class="flex items-center gap-3">
+          <input v-model="form.comprovacio" type="checkbox" class="h-7 w-7" />
+          <span class="text-base">Algú ha revisat que està tot bé</span>
         </label>
       </FormField>
 
-      <FormField v-if="form.comprovacio" label="Comprovat per">
-        <input v-model="form.comprovat_per" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+      <FormField v-if="form.comprovacio" label="🙋 Qui ho ha revisat?">
+        <input v-model="form.comprovat_per" type="text" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" />
       </FormField>
 
-      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-turon-black py-3 text-base font-semibold text-white disabled:opacity-50">
-        {{ enviant ? 'Registrant…' : 'Registrar incidència' }}
+      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-turon-black py-4 text-lg font-bold text-white disabled:opacity-50">
+        {{ enviant ? 'Guardant…' : '✅ Guardar' }}
       </button>
     </form>
 
     <section>
       <div class="mb-2 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-500">Últimes incidències</h2>
+        <h2 class="text-base font-bold text-slate-600">El que has apuntat fa poc</h2>
         <button
           type="button"
           :disabled="descarregant"
-          class="text-sm font-medium text-turon-black disabled:opacity-50"
+          class="text-sm font-bold text-turon-black disabled:opacity-50"
           @click="exportar"
         >
-          {{ descarregant ? 'Generant…' : '📥 Descarregar Excel' }}
+          {{ descarregant ? 'Generant…' : '📥 Excel' }}
         </button>
       </div>
-      <p v-if="loading" class="text-sm text-slate-400">Carregant…</p>
+      <p v-if="loading" class="text-base text-slate-400">Carregant…</p>
       <ul v-else class="space-y-2">
-        <li v-for="i in recents" :key="i.id" class="rounded-xl bg-white p-3 text-sm shadow-sm">
-          <div class="font-medium">{{ i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}</div>
+        <li v-for="i in recents" :key="i.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
+          <div class="font-bold">{{ i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}</div>
           <div class="text-slate-500">{{ i.motiu }}</div>
           <div class="text-slate-400">{{ i.responsable }} · {{ new Date(i.data_hora).toLocaleString() }}</div>
         </li>
-        <li v-if="!recents.length" class="text-sm text-slate-400">Encara no hi ha incidències.</li>
+        <li v-if="!recents.length" class="text-base text-slate-400">Encara no hi ha res apuntat.</li>
       </ul>
     </section>
   </div>

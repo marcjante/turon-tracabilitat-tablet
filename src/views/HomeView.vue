@@ -20,13 +20,13 @@ async function exportarTot() {
 }
 
 const items = [
-  { to: 'entrades', label: 'Entrada de matèries primeres', hint: 'Ficha 1', emoji: '📥' },
-  { to: 'lots-en-us', label: 'Lots en ús', hint: 'Ficha 2', emoji: '🔄' },
-  { to: 'semielaborats', label: 'Semielaborats', hint: 'Ficha 3', emoji: '🥣' },
-  { to: 'productes', label: 'Producció diària', hint: 'Ficha 4', emoji: '🥐' },
-  { to: 'incidencies', label: 'Canvi de lot / Incidència', hint: 'Ficha 5', emoji: '⚠️' },
-  { to: 'traca', label: 'Traçabilitat', hint: 'Cercar un lot', emoji: '🔍' },
-  { to: 'catalegs', label: 'Catàlegs', hint: 'Ingredients, proveïdors, receptes', emoji: '⚙️' },
+  { to: 'entrades', label: 'He rebut una comanda', hint: 'Quan arriba menjar nou', emoji: '📥' },
+  { to: 'lots-en-us', label: 'Obro un pot o saco nou', hint: 'Quan comences a fer-lo servir', emoji: '🔄' },
+  { to: 'semielaborats', label: 'He preparat una base', hint: 'Cremes, planxes...', emoji: '🥣' },
+  { to: 'productes', label: 'He fet productes', hint: 'El que has fet avui', emoji: '🥐' },
+  { to: 'incidencies', label: 'Ha passat algo', hint: 'Canvi de lot, un problema...', emoji: '⚠️' },
+  { to: 'traca', label: 'Buscar un lot', hint: 'D\'on ve o on ha anat', emoji: '🔍' },
+  { to: 'catalegs', label: 'Configuració', hint: 'Ingredients, proveïdors...', emoji: '⚙️' },
 ]
 </script>
 
@@ -50,17 +50,17 @@ const items = [
           {{ item.emoji }}
         </span>
         <span class="font-heading text-turon-black text-base font-bold">{{ item.label }}</span>
-        <span class="text-xs text-black/50">{{ item.hint }}</span>
+        <span class="text-sm text-black/50">{{ item.hint }}</span>
       </router-link>
     </div>
 
     <button
       type="button"
       :disabled="descarregant"
-      class="bg-turon-black mt-4 flex w-full items-center justify-center gap-2 rounded-2xl p-4 text-center text-sm font-bold text-white shadow-sm active:opacity-90 disabled:opacity-50"
+      class="bg-turon-black mt-4 flex w-full items-center justify-center gap-2 rounded-2xl p-4 text-center text-base font-bold text-white shadow-sm active:opacity-90 disabled:opacity-50"
       @click="exportarTot"
     >
-      {{ descarregant ? 'Generant l\'Excel…' : '📊 Descarregar tota la traçabilitat (Excel)' }}
+      {{ descarregant ? 'Generant…' : '📊 Baixar-ho tot en Excel' }}
     </button>
   </div>
 </template>

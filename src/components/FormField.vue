@@ -4,10 +4,10 @@ defineProps({ label: String, required: Boolean, hint: String })
 
 <template>
   <label class="block">
-    <span class="block text-sm font-medium text-slate-700 mb-1">
+    <span class="mb-1.5 block text-base font-bold text-slate-800">
       {{ label }}<span v-if="required" class="text-red-500"> *</span>
     </span>
     <slot />
-    <span v-if="hint" class="mt-1 block text-xs text-slate-500">{{ hint }}</span>
+    <span v-if="hint" class="mt-1.5 block text-sm text-slate-500">{{ hint }}</span>
   </label>
 </template>

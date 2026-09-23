@@ -19,18 +19,29 @@ body {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   font-family: var(--font-body);
+  font-size: 17px;
 }
 
 h1, h2, h3, .font-heading {
   font-family: var(--font-heading);
 }
 
-/* Objetivo táctil mínimo cómodo en tablet (~44px), sin repetirlo en
-   cada componente. */
+/* App per a persones sense costum d'omplir formularis a una pantalla:
+   objectius tàctils grans (~56px) i lletra grossa arreu, no només al
+   text ja marcat com "gros" en cada component. */
 button, select, input, .tap-target {
-  min-height: 44px;
+  min-height: 56px;
 }
 
 input, select, textarea {
-  font-size: 1rem;
+  font-size: 1.15rem;
+}
+
+/* Sobreescriu el min-height general: si no, el navegador estira la
+   caixa d'un checkbox/radio fins als 56px i queda una forma rara. */
+input[type='checkbox'], input[type='radio'] {
+  min-height: 1.75rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  accent-color: var(--color-turon-black);
 }
