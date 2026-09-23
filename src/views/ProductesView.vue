@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
+import { repo } from '../db/repo.js'
+import { db } from '../db/index.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
@@ -40,9 +42,9 @@ async function carregar() {
   loading.value = true
   try {
     const [ela, prod, sem] = await Promise.all([
-      api.elaboracions({ tipus: 'producte', actiu: true }),
-      api.productes(),
-      api.semielaborats(),
+      repo.elaboracions({ tipus: 'producte', actiu: true }),
+      repo.productes(),
+      repo.semielaborats(),
     ])
     elaboracions.value = ela
     recents.value = prod.slice(0, 8)
@@ -66,7 +68,7 @@ async function carregarRecepta() {
   lotsSemielaborats.value = {}
   if (!form.value.elaboracio_id) return
   try {
-    const receptes = await api.receptes({ elaboracio_id: form.value.elaboracio_id })
+    const receptes = await repo.receptes({ elaboracio_id: form.value.elaboracio_id })
     componentsSemielaborat.value = receptes.filter((r) => r.semielaborat_id !== null)
     for (const c of componentsSemielaborat.value) {
       lotsSemielaborats.value[c.semielaborat_id] = ''
@@ -103,6 +105,7 @@ async function enviar() {
       observacions: form.value.observacions || null,
       lots_semielaborats,
     })
+    await db.lots.put({ ...resultat, tipus: 'producte' })
     if (resultat.recepta_incompleta) {
       toast.error(`Lot ${resultat.codi} creat, però la recepta és incompleta: revisa els consums`)
     } else {

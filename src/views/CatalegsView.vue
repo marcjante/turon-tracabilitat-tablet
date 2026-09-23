@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
+import { repo } from '../db/repo.js'
+import { db } from '../db/index.js'
 import { useToast } from '../toast.js'
 import FormField from '../components/FormField.vue'
 import Spinner from '../components/Spinner.vue'
@@ -24,7 +26,7 @@ const loading = ref(true)
 async function carregar() {
   loading.value = true
   try {
-    const [ing, prov, ela] = await Promise.all([api.ingredients(), api.proveidors(), api.elaboracions()])
+    const [ing, prov, ela] = await Promise.all([repo.ingredients(), repo.proveidors(), repo.elaboracions()])
     ingredients.value = ing
     proveidors.value = prov
     elaboracions.value = ela
@@ -42,6 +44,7 @@ async function crearIngredient() {
   if (!nouIngredient.value.trim()) return
   try {
     const creat = await api.crearIngredient({ nom: nouIngredient.value.trim() })
+    await db.ingredients.put(creat)
     ingredients.value.push(creat)
     nouIngredient.value = ''
     toast.success('Ingredient afegit')
@@ -55,6 +58,7 @@ async function crearProveidor() {
   if (!nouProveidor.value.trim()) return
   try {
     const creat = await api.crearProveidor({ nom: nouProveidor.value.trim() })
+    await db.proveidors.put(creat)
     proveidors.value.push(creat)
     nouProveidor.value = ''
     toast.success('Proveïdor afegit')
@@ -76,6 +80,7 @@ async function crearElaboracioForm() {
       tipus: novaElaboracio.value.tipus,
       prefix_lot: novaElaboracio.value.prefix_lot.trim().toUpperCase(),
     })
+    await db.elaboracions.put(creada)
     elaboracions.value.push(creada)
     novaElaboracio.value = { nom: '', tipus: novaElaboracio.value.tipus, prefix_lot: '' }
     toast.success('Elaboració afegida')
@@ -96,7 +101,7 @@ async function carregarReceptes() {
   receptaComponentId.value = ''
   if (!elaboracioSeleccionada.value) return
   try {
-    receptes.value = await api.receptes({ elaboracio_id: elaboracioSeleccionada.value })
+    receptes.value = await repo.receptes({ elaboracio_id: elaboracioSeleccionada.value })
   } catch (err) {
     toast.error(err.detail || err.message)
   }
@@ -117,6 +122,7 @@ async function afegirComponent() {
     if (receptaComponentTipus.value === 'ingredient') payload.ingredient_id = Number(receptaComponentId.value)
     else payload.semielaborat_id = Number(receptaComponentId.value)
     const creada = await api.crearRecepta(payload)
+    await db.receptes.put(creada)
     receptes.value.push(creada)
     receptaComponentId.value = ''
     toast.success('Component afegit a la recepta')
@@ -128,6 +134,7 @@ async function afegirComponent() {
 async function eliminarComponent(id) {
   try {
     await api.eliminarRecepta(id)
+    await db.receptes.delete(id)
     receptes.value = receptes.value.filter((r) => r.id !== id)
     toast.success('Component eliminat')
   } catch (err) {

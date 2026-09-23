@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
+import { repo } from '../db/repo.js'
+import { db } from '../db/index.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
@@ -37,9 +39,9 @@ async function carregar() {
   loading.value = true
   try {
     const [ing, prov, ent] = await Promise.all([
-      api.ingredients({ actiu: true }),
-      api.proveidors({ actiu: true }),
-      api.entrades(),
+      repo.ingredients({ actiu: true }),
+      repo.proveidors({ actiu: true }),
+      repo.entrades(),
     ])
     ingredients.value = ing
     proveidors.value = prov
@@ -57,6 +59,7 @@ async function crearProveidorRapid() {
   if (!nom) return
   try {
     const creat = await api.crearProveidor({ nom })
+    await db.proveidors.put(creat)
     proveidors.value.push(creat)
     form.value.proveidor_id = creat.id
     novaProveidorNom.value = ''
@@ -74,7 +77,7 @@ async function enviar() {
   }
   enviant.value = true
   try {
-    await api.crearEntrada({
+    const creada = await api.crearEntrada({
       ingredient_id: Number(form.value.ingredient_id),
       proveidor_id: Number(form.value.proveidor_id),
       lot_proveidor: form.value.lot_proveidor,
@@ -84,6 +87,7 @@ async function enviar() {
       responsable: responsable.value,
       observacions: form.value.observacions || null,
     })
+    await db.lots.put({ ...creada, tipus: 'materia_primera' })
     toast.success(`Entrada registrada: lot ${form.value.lot_proveidor}`)
     const ingredientPrevi = form.value.ingredient_id
     form.value = { ingredient_id: ingredientPrevi, proveidor_id: '', lot_proveidor: '', data_recepcio: avui, caducitat: '', tipus_data: 'caducitat', observacions: '' }

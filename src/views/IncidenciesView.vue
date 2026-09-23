@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
+import { repo } from '../db/repo.js'
+import { db } from '../db/index.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
@@ -42,7 +44,7 @@ const form = ref({
 async function carregar() {
   loading.value = true
   try {
-    recents.value = (await api.incidencies()).slice(0, 8)
+    recents.value = (await repo.incidencies()).slice(0, 8)
     const idsUnics = [
       ...new Set(
         recents.value.flatMap((i) => [i.lot_afectat_id, i.lot_anterior_id, i.lot_nou_id]).filter((id) => id != null),
@@ -51,7 +53,7 @@ async function carregar() {
     const resolts = await Promise.all(
       idsUnics.map(async (id) => {
         try {
-          return [id, (await api.obtenirLot(id)).codi]
+          return [id, (await repo.obtenirLot(id)).codi]
         } catch {
           return [id, `#${id}`]
         }
@@ -77,7 +79,7 @@ async function enviar() {
   }
   enviant.value = true
   try {
-    await api.crearIncidencia({
+    const creada = await api.crearIncidencia({
       tipus: form.value.tipus,
       responsable: responsable.value,
       lot_afectat_id: form.value.lot_afectat_id,
@@ -88,6 +90,7 @@ async function enviar() {
       comprovacio: form.value.comprovacio,
       comprovat_per: form.value.comprovacio ? form.value.comprovat_per || null : null,
     })
+    await db.incidencies.put(creada)
     toast.success('Incidència registrada')
     form.value = {
       tipus: 'canvi_lot', responsable: '', lot_afectat_id: null, lot_anterior_id: null, lot_nou_id: null,

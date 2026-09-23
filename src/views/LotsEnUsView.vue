@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
+import { repo } from '../db/repo.js'
+import { db } from '../db/index.js'
 import { useToast } from '../toast.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
 import { fullLotsEnUs } from '../utils/exportFulls.js'
@@ -30,7 +32,7 @@ const ingredientNom = (id) => ingredients.value.find((i) => i.id === id)?.nom ||
 async function carregar() {
   loading.value = true
   try {
-    const [ing, ob] = await Promise.all([api.ingredients({ actiu: true }), api.lotsEnUs()])
+    const [ing, ob] = await Promise.all([repo.ingredients({ actiu: true }), repo.lotsEnUs()])
     ingredients.value = ing
     oberts.value = ob
   } catch (err) {
@@ -46,7 +48,7 @@ async function carregarLotsIngredient() {
   form.value.lot_id = ''
   if (!form.value.ingredient_id) return
   try {
-    lotsIngredient.value = await api.entrades({ ingredient_id: form.value.ingredient_id })
+    lotsIngredient.value = await repo.entrades({ ingredient_id: form.value.ingredient_id })
   } catch (err) {
     toast.error(err.detail || err.message)
   }
@@ -59,12 +61,17 @@ async function enviar() {
   }
   enviant.value = true
   try {
-    await api.obrirLotEnUs({
+    const nou = await api.obrirLotEnUs({
       ingredient_id: Number(form.value.ingredient_id),
       lot_id: Number(form.value.lot_id),
       inici: new Date(form.value.inici).toISOString(),
       observacions: form.value.observacions || null,
     })
+    // Regla de negoci 1: obrir-ne un de nou tanca automàticament el que
+    // ja estava obert d'aquest ingredient (fi = inici del nou).
+    const antic = oberts.value.find((o) => o.ingredient_id === nou.ingredient_id)
+    if (antic) await db.lotsEnUs.put({ ...antic, fi: nou.inici })
+    await db.lotsEnUs.put(nou)
     toast.success('Lot obert com a "en ús"')
     form.value = { ingredient_id: '', lot_id: '', inici: araLocal(), observacions: '' }
     lotsIngredient.value = []
@@ -78,7 +85,8 @@ async function enviar() {
 
 async function tancar(id) {
   try {
-    await api.tancarLotEnUs(id, {})
+    const tancat = await api.tancarLotEnUs(id, {})
+    await db.lotsEnUs.put(tancat)
     toast.success('Lot tancat')
     await carregar()
   } catch (err) {

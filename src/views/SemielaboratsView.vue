@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
+import { repo } from '../db/repo.js'
+import { db } from '../db/index.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
@@ -37,8 +39,8 @@ async function carregar() {
   loading.value = true
   try {
     const [ela, rec] = await Promise.all([
-      api.elaboracions({ tipus: 'semielaborat', actiu: true }),
-      api.semielaborats(),
+      repo.elaboracions({ tipus: 'semielaborat', actiu: true }),
+      repo.semielaborats(),
     ])
     elaboracions.value = ela
     recents.value = rec.slice(0, 8)
@@ -68,6 +70,7 @@ async function enviar() {
       responsable: responsable.value,
       observacions: form.value.observacions || null,
     })
+    await db.lots.put({ ...resultat, tipus: 'semielaborat' })
     if (resultat.recepta_incompleta) {
       toast.error(`Lot ${resultat.codi} creat, però la recepta és incompleta: revisa els consums`)
     } else {

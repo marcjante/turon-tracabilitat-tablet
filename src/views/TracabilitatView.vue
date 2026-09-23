@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { api, ApiError } from '../api.js'
+import { db } from '../db/index.js'
 import { useToast } from '../toast.js'
 import LotSearchField from '../components/LotSearchField.vue'
 import FormField from '../components/FormField.vue'
@@ -23,6 +24,9 @@ const grups = [
   { key: 'producte', label: 'Productes' },
 ]
 
+// La traçabilitat és l'única part que encara necessita xarxa sempre:
+// és un WITH RECURSIVE contra Postgres, no hi ha equivalent local
+// (veure docs/OFFLINE_ARCHITECTURE.md).
 async function cercarTraca(sentit) {
   if (!lotId.value) return
   cercant.value = true
@@ -30,7 +34,7 @@ async function cercarTraca(sentit) {
   try {
     resultat.value = sentit === 'endavant' ? await api.tracaEndavant(lotId.value) : await api.tracaEnrere(lotId.value)
   } catch (err) {
-    toast.error(err.detail || err.message)
+    toast.error(err instanceof ApiError ? err.detail : 'Sense connexió: la traçabilitat necessita xarxa')
     resultat.value = null
   } finally {
     cercant.value = false
@@ -53,7 +57,8 @@ async function anular() {
   }
   anulant.value = true
   try {
-    await api.anularLot(lotId.value, { lot_nou_id: lotNouId.value, motiu: motiuAnular.value || null })
+    const actualitzat = await api.anularLot(lotId.value, { lot_nou_id: lotNouId.value, motiu: motiuAnular.value || null })
+    await db.lots.put(actualitzat)
     toast.success('Lot anul·lat')
     reiniciar()
   } catch (err) {

@@ -1,8 +1,9 @@
 // Construeix les "fulles" (dades + columnes) per a cada ficha, llestes
-// per passar a baixarExcel(). Cada full() fa les seves pròpies crides a
-// l'API perquè les dades exportades siguin sempre les més recents.
+// per passar a baixarExcel(). Llegeix sempre de la còpia local
+// (IndexedDB, via repo.js), no de l'API — així l'exportació també
+// funciona sense connexió.
 
-import { api } from '../api.js'
+import { repo } from '../db/repo.js'
 
 function formatarData(value) {
   if (!value) return ''
@@ -15,7 +16,7 @@ function crearResoledorDeLots() {
     if (id == null) return ''
     if (cache.has(id)) return cache.get(id)
     try {
-      const lot = await api.obtenirLot(id)
+      const lot = await repo.obtenirLot(id)
       cache.set(id, lot.codi)
       return lot.codi
     } catch {
@@ -27,9 +28,9 @@ function crearResoledorDeLots() {
 
 export async function fullEntrades() {
   const [entrades, ingredients, proveidors] = await Promise.all([
-    api.entrades(),
-    api.ingredients(),
-    api.proveidors(),
+    repo.entrades(),
+    repo.ingredients(),
+    repo.proveidors(),
   ])
   const nomIngredient = (id) => ingredients.find((i) => i.id === id)?.nom || `#${id}`
   const nomProveidor = (id) => proveidors.find((p) => p.id === id)?.nom || `#${id}`
@@ -62,7 +63,7 @@ export async function fullEntrades() {
 }
 
 export async function fullLotsEnUs() {
-  const [historial, ingredients] = await Promise.all([api.historialLotsEnUs(), api.ingredients()])
+  const [historial, ingredients] = await Promise.all([repo.historialLotsEnUs(), repo.ingredients()])
   const resol = crearResoledorDeLots()
   const nomIngredient = (id) => ingredients.find((i) => i.id === id)?.nom || `#${id}`
 
@@ -117,17 +118,17 @@ function fullProduccio(nom, lots, elaboracions) {
 }
 
 export async function fullSemielaborats() {
-  const [lots, elaboracions] = await Promise.all([api.semielaborats(), api.elaboracions()])
+  const [lots, elaboracions] = await Promise.all([repo.semielaborats(), repo.elaboracions()])
   return fullProduccio('Semielaborats', lots, elaboracions)
 }
 
 export async function fullProductes() {
-  const [lots, elaboracions] = await Promise.all([api.productes(), api.elaboracions()])
+  const [lots, elaboracions] = await Promise.all([repo.productes(), repo.elaboracions()])
   return fullProduccio('Productes', lots, elaboracions)
 }
 
 export async function fullIncidencies() {
-  const incidencies = await api.incidencies()
+  const incidencies = await repo.incidencies()
   const resol = crearResoledorDeLots()
 
   const files = await Promise.all(

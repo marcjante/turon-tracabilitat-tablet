@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { api } from '../api.js'
+import { repo } from '../db/repo.js'
 
 const props = defineProps({
   label: { type: String, required: true },
@@ -21,7 +21,7 @@ async function cercar() {
   cercant.value = true
   cercat.value = true
   try {
-    const trobats = await api.cercarLots(query.value.trim())
+    const trobats = await repo.cercarLots(query.value.trim())
     resultats.value = props.tipusFiltre ? trobats.filter((l) => l.tipus === props.tipusFiltre) : trobats
   } catch {
     resultats.value = []
