@@ -157,7 +157,7 @@ async function exportar() {
             <option v-for="l in lotsPer(c.semielaborat_id)" :key="l.id" :value="l.id">{{ l.codi }}</option>
           </select>
           <p v-if="!lotsPer(c.semielaborat_id).length" class="mt-1 text-sm text-red-500">
-            No hi ha cap lot d'això fet (mira la ficha 3)
+            Encara no has preparat cap lot d'això
           </p>
         </FormField>
       </div>

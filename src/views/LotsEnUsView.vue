@@ -111,7 +111,7 @@ async function exportar() {
         </select>
       </FormField>
 
-      <FormField label="🔢 Quin lot és?" required :hint="form.ingredient_id && !lotsIngredient.length ? 'No hi ha cap lot apuntat d\'aquest ingredient (mira la ficha 1)' : ''">
+      <FormField label="🔢 Quin lot és?" required :hint="form.ingredient_id && !lotsIngredient.length ? 'Encara no has apuntat cap entrada d\'aquest ingredient' : ''">
         <select v-model="form.lot_id" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" :disabled="!form.ingredient_id">
           <option value="" disabled>Tria-ho de la llista…</option>
           <option v-for="l in lotsIngredient" :key="l.id" :value="l.id">{{ l.codi }} (caduca {{ l.caducitat }})</option>

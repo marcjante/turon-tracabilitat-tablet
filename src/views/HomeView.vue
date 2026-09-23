@@ -24,7 +24,7 @@ const items = [
   { to: 'lots-en-us', label: 'Obro un pot o saco nou', hint: 'Quan comences a fer-lo servir', emoji: '🔄' },
   { to: 'semielaborats', label: 'He preparat una base', hint: 'Cremes, planxes...', emoji: '🥣' },
   { to: 'productes', label: 'He fet productes', hint: 'El que has fet avui', emoji: '🥐' },
-  { to: 'incidencies', label: 'Ha passat algo', hint: 'Canvi de lot, un problema...', emoji: '⚠️' },
+  { to: 'incidencies', label: 'Ha passat alguna cosa', hint: 'Canvi de lot, un problema...', emoji: '⚠️' },
   { to: 'traca', label: 'Buscar un lot', hint: 'D\'on ve o on ha anat', emoji: '🔍' },
   { to: 'catalegs', label: 'Configuració', hint: 'Ingredients, proveïdors...', emoji: '⚙️' },
 ]

@@ -10,7 +10,7 @@ const titles = {
   'lots-en-us': 'Obro un pot o saco nou',
   semielaborats: 'He preparat una base',
   productes: 'He fet productes',
-  incidencies: 'Ha passat algo',
+  incidencies: 'Ha passat alguna cosa',
   traca: 'Buscar un lot',
   catalegs: 'Configuració',
 }
