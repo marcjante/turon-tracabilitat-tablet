@@ -1,8 +1,11 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { api, ApiError } from '../api.js'
 import { repo } from '../db/repo.js'
-import { db } from '../db/index.js'
+import { db, obtenirDeviceId } from '../db/index.js'
+import { refrescarTot, ultimaSincronitzacio, estatSincronitzacio } from '../db/sync.js'
+import { llistarCua, reintentar, descartar, estatCua } from '../db/queue.js'
+import { useOnlineStatus } from '../useOnlineStatus.js'
 import { useToast } from '../toast.js'
 import FormField from '../components/FormField.vue'
 import Spinner from '../components/Spinner.vue'
@@ -14,6 +17,7 @@ const tabs = [
   { key: 'proveidors', label: 'Proveïdors' },
   { key: 'elaboracions', label: 'Elaboracions' },
   { key: 'receptes', label: 'Receptes' },
+  { key: 'sync', label: 'Sincronització' },
 ]
 const tabActiu = ref('ingredients')
 
@@ -141,6 +145,82 @@ async function eliminarComponent(id) {
     toast.error(err.detail || err.message)
   }
 }
+
+// --- Sincronització (fase 6) ---
+const { enLinia } = useOnlineStatus()
+const deviceId = ref('')
+const cuaItems = ref([])
+const ultimaSync = ref(null)
+const estatServidor = ref('desconegut') // 'ok' | 'error' | 'desconegut'
+const comprovantServidor = ref(false)
+const espaiEmmagatzematge = ref(null)
+
+async function carregarEstatSync() {
+  const [items, ultima, device] = await Promise.all([llistarCua(), ultimaSincronitzacio(), obtenirDeviceId()])
+  cuaItems.value = items
+  ultimaSync.value = ultima
+  deviceId.value = device
+  if (navigator.storage?.estimate) {
+    espaiEmmagatzematge.value = await navigator.storage.estimate().catch(() => null)
+  }
+}
+
+async function comprovarServidor() {
+  comprovantServidor.value = true
+  try {
+    await api.health()
+    estatServidor.value = 'ok'
+  } catch {
+    estatServidor.value = 'error'
+  } finally {
+    comprovantServidor.value = false
+  }
+}
+
+async function sincronitzarAra() {
+  try {
+    await refrescarTot()
+    toast.success('Sincronitzat')
+    estatServidor.value = 'ok'
+  } catch {
+    toast.error('No s\'ha pogut sincronitzar — comprova la connexió')
+    estatServidor.value = enLinia.value ? 'error' : 'desconegut'
+  } finally {
+    await carregarEstatSync()
+  }
+}
+
+async function reintentarItem(clientId) {
+  await reintentar(clientId)
+  await sincronitzarAra()
+}
+
+async function descartarItem(clientId) {
+  await descartar(clientId)
+  await carregarEstatSync()
+  toast.success('Descartat')
+}
+
+function formatarMida(bytes) {
+  if (!bytes) return '0 MB'
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+const persistent = ref(null)
+async function solicitarPersistencia() {
+  if (!navigator.storage?.persist) return
+  persistent.value = await navigator.storage.persist()
+  toast[persistent.value ? 'success' : 'error'](
+    persistent.value ? 'Emmagatzematge protegit' : 'El navegador no ho ha concedit',
+  )
+}
+
+watch(tabActiu, (nou) => {
+  if (nou === 'sync') {
+    carregarEstatSync()
+    comprovarServidor()
+  }
+})
 </script>
 
 <template>
@@ -254,6 +334,80 @@ async function eliminarComponent(id) {
               <li v-if="!receptes.length" class="text-sm text-slate-400">Aquesta elaboració encara no té recepta.</li>
             </ul>
           </template>
+        </div>
+      </div>
+
+      <!-- Sincronització -->
+      <div v-if="tabActiu === 'sync'" class="space-y-4">
+        <div class="rounded-2xl bg-white p-4 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-lg font-bold">
+                <span v-if="!enLinia">🔴 Sense connexió</span>
+                <span v-else-if="estatServidor === 'ok'">🟢 Sincronitzat</span>
+                <span v-else-if="estatServidor === 'error'">🔴 Servidor no disponible</span>
+                <span v-else>🟠 Comprovant…</span>
+              </p>
+              <p class="text-sm text-slate-500">
+                Última sincronització: {{ ultimaSync ? new Date(ultimaSync).toLocaleString() : 'mai' }}
+              </p>
+            </div>
+            <button
+              type="button"
+              :disabled="estatCua.processant"
+              class="rounded-xl bg-turon-black px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+              @click="sincronitzarAra"
+            >
+              {{ estatCua.processant ? 'Sincronitzant…' : '🔄 Sincronitzar ara' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="cuaItems.length" class="rounded-2xl bg-white p-4 shadow-sm">
+          <p class="mb-2 text-base font-bold text-slate-600">
+            🟠 {{ cuaItems.length }} canvi{{ cuaItems.length === 1 ? '' : 's' }} pendent{{ cuaItems.length === 1 ? '' : 's' }}
+          </p>
+          <ul class="space-y-2">
+            <li v-for="item in cuaItems" :key="item.clientId" class="rounded-xl bg-slate-50 p-3 text-sm">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-bold">{{ item.operation }}</span>
+                <span
+                  class="rounded-full px-2 py-0.5 text-xs font-bold"
+                  :class="item.status === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'"
+                >
+                  {{ item.status === 'error' ? '❌ Error' : '⏳ Pendent' }}
+                </span>
+              </div>
+              <p class="text-slate-500">Creat: {{ new Date(item.createdAt).toLocaleString() }} · {{ item.attempts }} intent{{ item.attempts === 1 ? '' : 's' }}</p>
+              <p v-if="item.lastError" class="text-red-600">{{ item.lastError }}</p>
+              <div v-if="item.status === 'error'" class="mt-2 flex gap-2">
+                <button type="button" class="rounded-lg bg-turon-black px-3 py-2 text-xs font-bold text-white" @click="reintentarItem(item.clientId)">
+                  Reintentar
+                </button>
+                <button type="button" class="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white" @click="descartarItem(item.clientId)">
+                  Descartar
+                </button>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div v-else class="rounded-2xl bg-white p-4 text-center text-slate-400 shadow-sm">
+          ✅ No hi ha res pendent de sincronitzar
+        </div>
+
+        <div class="rounded-2xl bg-white p-4 text-sm shadow-sm">
+          <p class="mb-2 text-base font-bold text-slate-600">Diagnòstic</p>
+          <dl class="space-y-1 text-slate-600">
+            <div class="flex justify-between"><dt>Dispositiu</dt><dd class="font-mono text-xs">{{ deviceId }}</dd></div>
+            <div class="flex justify-between"><dt>Connexió</dt><dd>{{ enLinia ? 'En línia' : 'Sense connexió' }}</dd></div>
+            <div v-if="espaiEmmagatzematge" class="flex justify-between">
+              <dt>Emmagatzematge usat</dt>
+              <dd>{{ formatarMida(espaiEmmagatzematge.usage) }} de {{ formatarMida(espaiEmmagatzematge.quota) }}</dd>
+            </div>
+          </dl>
+          <button type="button" class="mt-3 w-full rounded-xl border-2 border-turon-black py-2 text-sm font-bold text-turon-black" @click="solicitarPersistencia">
+            🔒 Protegir dades locals d'esborrat automàtic
+          </button>
         </div>
       </div>
     </template>

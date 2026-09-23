@@ -45,6 +45,8 @@ const patch = (path, body) => request('PATCH', path, { body })
 const del = (path, params) => request('DELETE', path, { params })
 
 export const api = {
+  health: () => get('/health'),
+
   // Catàlegs
   ingredients: (params) => get('/ingredients', params),
   crearIngredient: (body) => post('/ingredients', body),

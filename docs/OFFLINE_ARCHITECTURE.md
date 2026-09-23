@@ -80,9 +80,22 @@ La solució no és calcular el codi al dispositiu (col·lidiria entre dispositiu
 
 Amb Playwright, contra l'API real de Railway: obrir un lot en ús offline + crear una incidència offline (referenciant un lot ja sincronitzat) → reconnectar → totes dues sincronitzen amb el seu id real, `afectats_snapshot` calculat pel servidor, cua buida; crear un semielaborat offline amb una recepta que exigeix un ingredient concret sense tenir-lo obert → error real del servidor capturat correctament (`status: 'error'`, no bucle infinit); crear un semielaborat offline sense aquest problema → sincronitza amb un codi real assignat pel servidor. Idempotència de `tancar_lot_en_us` (mateix `fi`) coberta per test de backend (`test_tancar_lot_amb_mateix_fi_es_idempotent`).
 
+## Fase 6 — Sincronitzar ara + pantalla d'estat (completada)
+
+**Què cobreix**: pestanya "Sincronització" dins de Configuració (`CatalegsView.vue`) amb botó manual, estat 🟢/🟠/🔴, llista d'operacions pendents/en error amb reintentar/descartar, i un bloc de diagnòstic.
+
+### Peces
+
+- **Estat de servidor** (`api.health()`, nou a `src/api.js`): distingeix "sense xarxa" (`navigator.onLine`) de "hi ha xarxa però el servidor no respon" (`GET /health` falla) — els dos casos del punt 13 de l'especificació original.
+- **`src/db/queue.js`**: `reintentar(clientId)` torna un element "error" a "pending" perquè `processarCua()` el reculli; `descartar(clientId)` l'elimina definitivament (només per a elements en "error" — mai per a "pending", per no perdre una operació que només espera xarxa).
+- **Diagnòstic**: `device_id` (generat un sol cop amb `crypto.randomUUID()` i guardat a `db.meta`, `obtenirDeviceId()` a `src/db/index.js` — preparat per a quan calgui distingir dispositius en sincronitzar, encara no usat per a res més), connexió, espai d'emmagatzematge (`navigator.storage.estimate()`), i un botó per demanar `navigator.storage.persist()` (evita que el navegador esborri IndexedDB sota pressió d'espai — no es demana automàticament, cal que la persona ho premi).
+
+### Verificat
+
+Amb Playwright: la pestanya mostra última sincronització, dispositiu i espai usat amb dades reals; un element de cua en estat "error" mostra els botons Reintentar/Descartar, i Descartar l'elimina de veritat de `syncQueue`.
+
 ## Pendent (properes fases, no implementat encara)
 
-- **Fase 6**: botó "Sincronitzar ara" manual i pantalla d'estat (última sincronització, errors, operacions fallides) — ara mateix la sincronització és automàtica però invisible més enllà del banner de pendents.
 - **Fase 7**: sincronització incremental (`updated_since`) en comptes del pull complet actual — no cal encara pel volum d'un sol obrador, però evitaria baixar-ho tot cada vegada.
 - **Fase 8**: conflictes reals entre dispositius (dos tablets modificant el mateix registre) — encara no s'ha donat el cas perquè totes les escriptures offline són de creació (o, per a `tancar_lot_en_us`, una transició d'estat idempotent), no edició lliure.
 - **Fase 9**: exportació/importació de còpia de seguretat local.

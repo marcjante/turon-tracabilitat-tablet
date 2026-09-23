@@ -19,6 +19,23 @@ export async function llistarCua() {
   return db.syncQueue.orderBy('createdAt').reverse().toArray()
 }
 
+// Torna a intentar un element que havia quedat marcat com "error" (p.
+// ex. la persona ja ha obert el lot que faltava) — el torna a deixar
+// "pending" perquè processarCua() el reculli la propera vegada.
+export async function reintentar(clientId) {
+  await db.syncQueue.update(clientId, { status: 'pending', lastError: null })
+}
+
+// Descarta un element en error (mai un de "pending": això perdria una
+// operació encara vàlida que només espera xarxa). Esborra també el
+// registre local pendent associat, si n'hi ha.
+export async function descartar(clientId) {
+  const item = await db.syncQueue.get(clientId)
+  if (!item || item.status !== 'error') return
+  if (item.tempId != null) await taulaPerEntitat[item.entity]?.()?.delete(item.tempId)
+  await db.syncQueue.delete(clientId)
+}
+
 export async function afegirAlaCua({ clientId, operation, entity, tempId, payload }) {
   await db.syncQueue.put({
     clientId,
