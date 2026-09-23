@@ -1,0 +1,138 @@
+<script setup>
+import { onMounted, ref } from 'vue'
+import { api, ApiError } from '../api.js'
+import { useToast } from '../toast.js'
+import { useResponsable } from '../responsable.js'
+import FormField from '../components/FormField.vue'
+
+const toast = useToast()
+const responsable = useResponsable()
+
+const elaboracions = ref([])
+const recents = ref([])
+const loading = ref(true)
+const enviant = ref(false)
+
+function araLocal() {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 16)
+}
+
+const form = ref({
+  elaboracio_id: '',
+  quantitat: '',
+  unitat: 'kg',
+  elaborat_at: araLocal(),
+  torn: 'mati',
+  observacions: '',
+})
+
+async function carregar() {
+  loading.value = true
+  try {
+    const [ela, rec] = await Promise.all([
+      api.elaboracions({ tipus: 'semielaborat', actiu: true }),
+      api.semielaborats(),
+    ])
+    elaboracions.value = ela
+    recents.value = rec.slice(0, 8)
+  } catch (err) {
+    toast.error(err.detail || err.message)
+  } finally {
+    loading.value = false
+  }
+}
+onMounted(carregar)
+
+const elaboracioNom = (id) => elaboracions.value.find((e) => e.id === id)?.nom || `#${id}`
+
+async function enviar() {
+  if (!form.value.elaboracio_id || !form.value.quantitat || !form.value.unitat || !form.value.torn) {
+    toast.error('Falten camps obligatoris')
+    return
+  }
+  enviant.value = true
+  try {
+    const resultat = await api.crearSemielaborat({
+      elaboracio_id: Number(form.value.elaboracio_id),
+      quantitat: Number(form.value.quantitat),
+      unitat: form.value.unitat,
+      elaborat_at: new Date(form.value.elaborat_at).toISOString(),
+      torn: form.value.torn,
+      responsable: responsable.value,
+      observacions: form.value.observacions || null,
+    })
+    if (resultat.recepta_incompleta) {
+      toast.error(`Lot ${resultat.codi} creat, però la recepta és incompleta: revisa els consums`)
+    } else {
+      toast.success(`Lot creat: ${resultat.codi}`)
+    }
+    const elaboracioPrevia = form.value.elaboracio_id
+    form.value = { elaboracio_id: elaboracioPrevia, quantitat: '', unitat: form.value.unitat, elaborat_at: araLocal(), torn: form.value.torn, observacions: '' }
+    await carregar()
+  } catch (err) {
+    toast.error(err instanceof ApiError ? err.detail : 'Error de connexió')
+  } finally {
+    enviant.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="space-y-5">
+    <form class="space-y-4 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">
+      <FormField label="Responsable" required>
+        <input v-model="responsable" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="El teu nom" />
+      </FormField>
+
+      <FormField label="Elaboració" required>
+        <select v-model="form.elaboracio_id" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="" disabled>Selecciona…</option>
+          <option v-for="e in elaboracions" :key="e.id" :value="e.id">{{ e.nom }}</option>
+        </select>
+      </FormField>
+
+      <div class="grid grid-cols-2 gap-3">
+        <FormField label="Quantitat" required>
+          <input v-model="form.quantitat" type="number" step="0.01" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+        </FormField>
+        <FormField label="Unitat" required>
+          <input v-model="form.unitat" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+        </FormField>
+      </div>
+
+      <FormField label="Elaborat a" required>
+        <input v-model="form.elaborat_at" type="datetime-local" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+      </FormField>
+
+      <FormField label="Torn" required>
+        <select v-model="form.torn" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="mati">Matí</option>
+          <option value="tarda">Tarda</option>
+          <option value="nit">Nit</option>
+        </select>
+      </FormField>
+
+      <FormField label="Observacions">
+        <textarea v-model="form.observacions" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+      </FormField>
+
+      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-indigo-600 py-3 text-base font-semibold text-white disabled:opacity-50">
+        {{ enviant ? 'Registrant…' : 'Registrar semielaborat' }}
+      </button>
+    </form>
+
+    <section>
+      <h2 class="mb-2 text-sm font-semibold text-slate-500">Últims semielaborats</h2>
+      <p v-if="loading" class="text-sm text-slate-400">Carregant…</p>
+      <ul v-else class="space-y-2">
+        <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-sm shadow-sm">
+          <div class="font-medium">{{ r.codi }} — {{ elaboracioNom(r.elaboracio_id) }}</div>
+          <div class="text-slate-500">{{ r.quantitat }} {{ r.unitat }} · {{ r.torn }} · {{ r.responsable }}</div>
+        </li>
+        <li v-if="!recents.length" class="text-sm text-slate-400">Encara no hi ha semielaborats.</li>
+      </ul>
+    </section>
+  </div>
+</template>

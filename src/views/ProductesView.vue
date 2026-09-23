@@ -1,0 +1,192 @@
+<script setup>
+import { onMounted, ref } from 'vue'
+import { api, ApiError } from '../api.js'
+import { useToast } from '../toast.js'
+import { useResponsable } from '../responsable.js'
+import FormField from '../components/FormField.vue'
+
+const toast = useToast()
+const responsable = useResponsable()
+
+const elaboracions = ref([])
+const recents = ref([])
+const semielaboratsDisponibles = ref([]) // lots vius de semielaborats, per triar-ne un
+const componentsSemielaborat = ref([]) // components de la recepta que són semielaborats
+const loading = ref(true)
+const enviant = ref(false)
+
+function araLocal() {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 16)
+}
+
+const form = ref({
+  elaboracio_id: '',
+  quantitat: '',
+  unitat: 'unitats',
+  elaborat_at: araLocal(),
+  torn: 'mati',
+  observacions: '',
+})
+const lotsSemielaborats = ref({}) // { semielaborat_id: lot_id }
+
+async function carregar() {
+  loading.value = true
+  try {
+    const [ela, prod, sem] = await Promise.all([
+      api.elaboracions({ tipus: 'producte', actiu: true }),
+      api.productes(),
+      api.semielaborats(),
+    ])
+    elaboracions.value = ela
+    recents.value = prod.slice(0, 8)
+    semielaboratsDisponibles.value = sem
+  } catch (err) {
+    toast.error(err.detail || err.message)
+  } finally {
+    loading.value = false
+  }
+}
+onMounted(carregar)
+
+const elaboracioNom = (id) => elaboracions.value.find((e) => e.id === id)?.nom || `#${id}`
+
+function lotsPer(semielaboratId) {
+  return semielaboratsDisponibles.value.filter((l) => l.elaboracio_id === semielaboratId)
+}
+
+async function carregarRecepta() {
+  componentsSemielaborat.value = []
+  lotsSemielaborats.value = {}
+  if (!form.value.elaboracio_id) return
+  try {
+    const receptes = await api.receptes({ elaboracio_id: form.value.elaboracio_id })
+    componentsSemielaborat.value = receptes.filter((r) => r.semielaborat_id !== null)
+    for (const c of componentsSemielaborat.value) {
+      lotsSemielaborats.value[c.semielaborat_id] = ''
+    }
+  } catch (err) {
+    toast.error(err.detail || err.message)
+  }
+}
+
+async function enviar() {
+  if (!form.value.elaboracio_id || !form.value.quantitat || !form.value.unitat || !form.value.torn) {
+    toast.error('Falten camps obligatoris')
+    return
+  }
+  for (const c of componentsSemielaborat.value) {
+    if (!lotsSemielaborats.value[c.semielaborat_id]) {
+      toast.error('Falta triar el lot d\'algun semielaborat de la recepta')
+      return
+    }
+  }
+  enviant.value = true
+  try {
+    const lots_semielaborats = {}
+    for (const [semId, lotId] of Object.entries(lotsSemielaborats.value)) {
+      lots_semielaborats[semId] = Number(lotId)
+    }
+    const resultat = await api.crearProducte({
+      elaboracio_id: Number(form.value.elaboracio_id),
+      quantitat: Number(form.value.quantitat),
+      unitat: form.value.unitat,
+      elaborat_at: new Date(form.value.elaborat_at).toISOString(),
+      torn: form.value.torn,
+      responsable: responsable.value,
+      observacions: form.value.observacions || null,
+      lots_semielaborats,
+    })
+    if (resultat.recepta_incompleta) {
+      toast.error(`Lot ${resultat.codi} creat, però la recepta és incompleta: revisa els consums`)
+    } else {
+      toast.success(`Lot creat: ${resultat.codi}`)
+    }
+    const elaboracioPrevia = form.value.elaboracio_id
+    form.value = { elaboracio_id: elaboracioPrevia, quantitat: '', unitat: form.value.unitat, elaborat_at: araLocal(), torn: form.value.torn, observacions: '' }
+    await carregar()
+    await carregarRecepta()
+  } catch (err) {
+    toast.error(err instanceof ApiError ? err.detail : 'Error de connexió')
+  } finally {
+    enviant.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="space-y-5">
+    <form class="space-y-4 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">
+      <FormField label="Responsable" required>
+        <input v-model="responsable" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="El teu nom" />
+      </FormField>
+
+      <FormField label="Elaboració" required>
+        <select v-model="form.elaboracio_id" class="w-full rounded-lg border border-slate-300 px-3 py-2" @change="carregarRecepta">
+          <option value="" disabled>Selecciona…</option>
+          <option v-for="e in elaboracions" :key="e.id" :value="e.id">{{ e.nom }}</option>
+        </select>
+      </FormField>
+
+      <div v-if="componentsSemielaborat.length" class="space-y-3 rounded-xl bg-amber-50 p-3">
+        <p class="text-sm font-medium text-amber-900">Tria el lot de cada semielaborat de la recepta</p>
+        <FormField
+          v-for="c in componentsSemielaborat"
+          :key="c.id"
+          :label="elaboracioNom(c.semielaborat_id)"
+          required
+        >
+          <select v-model="lotsSemielaborats[c.semielaborat_id]" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+            <option value="" disabled>Selecciona un lot…</option>
+            <option v-for="l in lotsPer(c.semielaborat_id)" :key="l.id" :value="l.id">{{ l.codi }}</option>
+          </select>
+          <p v-if="!lotsPer(c.semielaborat_id).length" class="mt-1 text-xs text-red-500">
+            No hi ha cap lot viu d'aquest semielaborat (ficha 3)
+          </p>
+        </FormField>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <FormField label="Quantitat" required>
+          <input v-model="form.quantitat" type="number" step="0.01" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+        </FormField>
+        <FormField label="Unitat" required>
+          <input v-model="form.unitat" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+        </FormField>
+      </div>
+
+      <FormField label="Elaborat a" required>
+        <input v-model="form.elaborat_at" type="datetime-local" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+      </FormField>
+
+      <FormField label="Torn" required>
+        <select v-model="form.torn" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="mati">Matí</option>
+          <option value="tarda">Tarda</option>
+          <option value="nit">Nit</option>
+        </select>
+      </FormField>
+
+      <FormField label="Observacions">
+        <textarea v-model="form.observacions" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+      </FormField>
+
+      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-indigo-600 py-3 text-base font-semibold text-white disabled:opacity-50">
+        {{ enviant ? 'Registrant…' : 'Registrar producció' }}
+      </button>
+    </form>
+
+    <section>
+      <h2 class="mb-2 text-sm font-semibold text-slate-500">Últims productes</h2>
+      <p v-if="loading" class="text-sm text-slate-400">Carregant…</p>
+      <ul v-else class="space-y-2">
+        <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-sm shadow-sm">
+          <div class="font-medium">{{ r.codi }} — {{ elaboracioNom(r.elaboracio_id) }}</div>
+          <div class="text-slate-500">{{ r.quantitat }} {{ r.unitat }} · {{ r.torn }} · {{ r.responsable }}</div>
+        </li>
+        <li v-if="!recents.length" class="text-sm text-slate-400">Encara no hi ha productes.</li>
+      </ul>
+    </section>
+  </div>
+</template>

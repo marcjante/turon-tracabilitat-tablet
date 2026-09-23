@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+html, body, #app {
+  height: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Objetivo táctil mínimo cómodo en tablet (~44px), sin repetirlo en
+   cada componente. */
+button, select, input, .tap-target {
+  min-height: 44px;
+}
+
+input, select, textarea {
+  font-size: 1rem;
+}
