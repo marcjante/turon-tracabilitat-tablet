@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useToast } from '../toast.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
 import { totsElsFulls } from '../utils/exportFulls.js'
+import { promptInstallacio, instalarApp } from '../pwa.js'
 
 const toast = useToast()
 const descarregant = ref(false)
@@ -61,6 +62,15 @@ const items = [
       @click="exportarTot"
     >
       {{ descarregant ? 'Generant…' : '📊 Baixar-ho tot en Excel' }}
+    </button>
+
+    <button
+      v-if="promptInstallacio"
+      type="button"
+      class="border-turon-black text-turon-black mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 bg-white p-4 text-center text-base font-bold shadow-sm active:opacity-80"
+      @click="instalarApp"
+    >
+      📲 Instal·la l'app al dispositiu
     </button>
   </div>
 </template>
