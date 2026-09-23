@@ -21,7 +21,7 @@ async function exportarTot() {
 
 const items = [
   { to: 'entrades', label: 'He rebut una comanda', hint: 'Quan arriba menjar nou', emoji: '📥' },
-  { to: 'lots-en-us', label: 'Obro un pot o saco nou', hint: 'Quan comences a fer-lo servir', emoji: '🔄' },
+  { to: 'lots-en-us', label: 'Obro un pot o sac nou', hint: 'Quan comences a fer-lo servir', emoji: '🔄' },
   { to: 'semielaborats', label: 'He preparat una base', hint: 'Cremes, planxes...', emoji: '🥣' },
   { to: 'productes', label: 'He fet productes', hint: 'El que has fet avui', emoji: '🥐' },
   { to: 'incidencies', label: 'Ha passat alguna cosa', hint: 'Canvi de lot, un problema...', emoji: '⚠️' },

@@ -100,7 +100,7 @@ async function exportar() {
 <template>
   <div class="space-y-5">
     <p class="rounded-xl bg-white p-3 text-base text-slate-600 shadow-sm">
-      Fes-ho servir quan comences a obrir/fer servir un saco o pot nou d'un ingredient.
+      Fes-ho servir quan comences a obrir/fer servir un sac o pot nou d'un ingredient.
     </p>
 
     <form class="space-y-5 rounded-2xl bg-white p-4 shadow-sm" @submit.prevent="enviar">

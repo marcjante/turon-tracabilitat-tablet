@@ -7,7 +7,7 @@ const router = useRouter()
 
 const titles = {
   entrades: 'He rebut una comanda',
-  'lots-en-us': 'Obro un pot o saco nou',
+  'lots-en-us': 'Obro un pot o sac nou',
   semielaborats: 'He preparat una base',
   productes: 'He fet productes',
   incidencies: 'Ha passat alguna cosa',

@@ -16,6 +16,14 @@ const codisLot = ref({}) // lot_id -> codi, per mostrar-lo en comptes de l'id
 const loading = ref(true)
 const enviant = ref(false)
 const descarregant = ref(false)
+const expandit = ref(null) // id de la incidència oberta a la llista
+
+const tipusInfo = {
+  canvi_lot: { l: 'He canviat de lot', e: '🔄' },
+  devolucio: { l: 'Devolució', e: '↩️' },
+  alerta: { l: 'Alerta', e: '🚨' },
+  altra: { l: 'Altra cosa', e: '❓' },
+}
 
 const form = ref({
   tipus: 'canvi_lot',
@@ -33,7 +41,11 @@ async function carregar() {
   loading.value = true
   try {
     recents.value = (await api.incidencies()).slice(0, 8)
-    const idsUnics = [...new Set(recents.value.map((i) => i.lot_afectat_id).filter((id) => id != null))]
+    const idsUnics = [
+      ...new Set(
+        recents.value.flatMap((i) => [i.lot_afectat_id, i.lot_anterior_id, i.lot_nou_id]).filter((id) => id != null),
+      ),
+    ]
     const resolts = await Promise.all(
       idsUnics.map(async (id) => {
         try {
@@ -51,6 +63,10 @@ async function carregar() {
   }
 }
 onMounted(carregar)
+
+function toggleExpandir(id) {
+  expandit.value = expandit.value === id ? null : id
+}
 
 async function enviar() {
   if (!form.value.lot_afectat_id || !form.value.motiu) {
@@ -106,19 +122,14 @@ async function exportar() {
       <FormField label="⚠️ Què ha passat?" required>
         <div class="grid grid-cols-2 gap-2">
           <button
-            v-for="t in [
-              { v: 'canvi_lot', l: 'He canviat de lot', e: '🔄' },
-              { v: 'devolucio', l: 'Devolució', e: '↩️' },
-              { v: 'alerta', l: 'Alerta', e: '🚨' },
-              { v: 'altra', l: 'Altra cosa', e: '❓' },
-            ]"
-            :key="t.v"
+            v-for="(info, v) in tipusInfo"
+            :key="v"
             type="button"
             class="rounded-xl border-2 p-3 text-center text-base font-bold"
-            :class="form.tipus === t.v ? 'border-turon-black bg-turon-black text-white' : 'border-slate-300 text-slate-600'"
-            @click="form.tipus = t.v"
+            :class="form.tipus === v ? 'border-turon-black bg-turon-black text-white' : 'border-slate-300 text-slate-600'"
+            @click="form.tipus = v"
           >
-            {{ t.e }} {{ t.l }}
+            {{ info.e }} {{ info.l }}
           </button>
         </div>
       </FormField>
@@ -165,10 +176,30 @@ async function exportar() {
       </div>
       <p v-if="loading" class="text-base text-slate-400">Carregant…</p>
       <ul v-else class="space-y-2">
-        <li v-for="i in recents" :key="i.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
-          <div class="font-bold">{{ i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}</div>
-          <div class="text-slate-500">{{ i.motiu }}</div>
-          <div class="text-slate-400">{{ i.responsable }} · {{ new Date(i.data_hora).toLocaleString() }}</div>
+        <li v-for="i in recents" :key="i.id" class="overflow-hidden rounded-xl bg-white shadow-sm">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-2 p-3 text-left text-base active:bg-slate-50"
+            @click="toggleExpandir(i.id)"
+          >
+            <div>
+              <div class="font-bold">
+                {{ tipusInfo[i.tipus]?.e }} {{ tipusInfo[i.tipus]?.l || i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}
+              </div>
+              <div class="text-slate-500">{{ i.motiu }}</div>
+              <div class="text-slate-400">{{ i.responsable }} · {{ new Date(i.data_hora).toLocaleString() }}</div>
+            </div>
+            <span class="shrink-0 text-xl text-slate-400">{{ expandit === i.id ? '▲' : '▼' }}</span>
+          </button>
+          <div v-if="expandit === i.id" class="space-y-1 border-t border-slate-100 bg-slate-50 p-3 text-base">
+            <div v-if="i.lot_anterior_id"><span class="font-bold">Lot anterior:</span> {{ codisLot[i.lot_anterior_id] || `#${i.lot_anterior_id}` }}</div>
+            <div v-if="i.lot_nou_id"><span class="font-bold">Lot nou:</span> {{ codisLot[i.lot_nou_id] || `#${i.lot_nou_id}` }}</div>
+            <div v-if="i.mesura_adoptada"><span class="font-bold">Què s'ha fet:</span> {{ i.mesura_adoptada }}</div>
+            <div>
+              <span class="font-bold">Comprovació:</span>
+              {{ i.comprovacio ? `✅ Sí${i.comprovat_per ? ' — ' + i.comprovat_per : ''}` : '❌ Encara no' }}
+            </div>
+          </div>
         </li>
         <li v-if="!recents.length" class="text-base text-slate-400">Encara no hi ha res apuntat.</li>
       </ul>
