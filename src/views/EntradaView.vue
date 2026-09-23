@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
 import { repo } from '../db/repo.js'
 import { db } from '../db/index.js'
+import { afegirAlaCua } from '../db/queue.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
@@ -70,31 +71,70 @@ async function crearProveidorRapid() {
   }
 }
 
+function reiniciarFormulari() {
+  const ingredientPrevi = form.value.ingredient_id
+  form.value = { ingredient_id: ingredientPrevi, proveidor_id: '', lot_proveidor: '', data_recepcio: avui, caducitat: '', tipus_data: 'caducitat', observacions: '' }
+}
+
+// Fase 4: si no hi ha connexió (o la petició falla per xarxa, no
+// perquè el servidor rebutgi les dades), es guarda igualment amb un id
+// local temporal (negatiu, mai xoca amb un id real del servidor) i
+// s'afegeix a la cua — es sincronitzarà sol quan torni la xarxa
+// (src/db/sync.js crida processarCua() abans de cada refresc).
+async function guardarOffline(payload, clientId) {
+  const idTemporal = -Date.now()
+  await db.lots.put({
+    id: idTemporal,
+    client_id: clientId,
+    tipus: 'materia_primera',
+    codi: payload.lot_proveidor,
+    creat_at: new Date().toISOString(),
+    responsable: payload.responsable,
+    observacions: payload.observacions,
+    ingredient_id: payload.ingredient_id,
+    proveidor_id: payload.proveidor_id,
+    lot_proveidor: payload.lot_proveidor,
+    data_recepcio: payload.data_recepcio,
+    caducitat: payload.caducitat,
+    tipus_data: payload.tipus_data,
+    anulat_per_id: null,
+  })
+  await afegirAlaCua({ clientId, operation: 'CREATE_ENTRADA', entity: 'lot', tempId: idTemporal, payload })
+}
+
 async function enviar() {
   if (!form.value.ingredient_id || !form.value.proveidor_id || !form.value.lot_proveidor || !form.value.caducitat) {
     toast.error('Falten camps obligatoris')
     return
   }
   enviant.value = true
+  const clientId = crypto.randomUUID()
+  const payload = {
+    ingredient_id: Number(form.value.ingredient_id),
+    proveidor_id: Number(form.value.proveidor_id),
+    lot_proveidor: form.value.lot_proveidor,
+    data_recepcio: form.value.data_recepcio,
+    caducitat: form.value.caducitat,
+    tipus_data: form.value.tipus_data,
+    responsable: responsable.value,
+    observacions: form.value.observacions || null,
+    client_id: clientId,
+  }
   try {
-    const creada = await api.crearEntrada({
-      ingredient_id: Number(form.value.ingredient_id),
-      proveidor_id: Number(form.value.proveidor_id),
-      lot_proveidor: form.value.lot_proveidor,
-      data_recepcio: form.value.data_recepcio,
-      caducitat: form.value.caducitat,
-      tipus_data: form.value.tipus_data,
-      responsable: responsable.value,
-      observacions: form.value.observacions || null,
-    })
+    const creada = await api.crearEntrada(payload)
     await db.lots.put({ ...creada, tipus: 'materia_primera' })
     toast.success(`Entrada registrada: lot ${form.value.lot_proveidor}`)
-    const ingredientPrevi = form.value.ingredient_id
-    form.value = { ingredient_id: ingredientPrevi, proveidor_id: '', lot_proveidor: '', data_recepcio: avui, caducitat: '', tipus_data: 'caducitat', observacions: '' }
+    reiniciarFormulari()
     await carregar()
   } catch (err) {
-    if (err instanceof ApiError) toast.error(err.detail)
-    else toast.error('Error de connexió')
+    if (err instanceof ApiError) {
+      toast.error(err.detail)
+    } else {
+      await guardarOffline(payload, clientId)
+      toast.success(`Guardat en local: lot ${form.value.lot_proveidor} (es sincronitzarà sol)`)
+      reiniciarFormulari()
+      await carregar()
+    }
   } finally {
     enviant.value = false
   }
@@ -203,7 +243,10 @@ const etiquetaData = computed(() =>
       <template v-else>
         <ul v-if="recents.length" class="space-y-2">
           <li v-for="e in recents" :key="e.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
-            <div class="font-bold">{{ e.codi }}</div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold">{{ e.codi }}</span>
+              <span v-if="e.id < 0" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⏳ Pendent</span>
+            </div>
             <div class="text-slate-500">Caduca {{ e.caducitat }} · {{ e.responsable }}</div>
           </li>
         </ul>

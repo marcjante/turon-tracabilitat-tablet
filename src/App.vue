@@ -3,10 +3,12 @@ import { useRoute, useRouter } from 'vue-router'
 import ToastHost from './components/ToastHost.vue'
 import { useOnlineStatus } from './useOnlineStatus.js'
 import { actualitzacioDisponible, aplicarActualitzacio } from './pwa.js'
+import { usePendentsCount } from './db/usePendentsCount.js'
 
 const route = useRoute()
 const router = useRouter()
 const { enLinia } = useOnlineStatus()
+const { pendents } = usePendentsCount()
 
 const titles = {
   entrades: 'He rebut una comanda',
@@ -30,8 +32,13 @@ const titles = {
       </button>
     </div>
 
-    <div v-if="!enLinia" class="sticky z-40 bg-red-600 px-4 py-1.5 text-center text-xs font-bold text-white" :class="actualitzacioDisponible ? 'top-9' : 'top-0'">
-      🔴 Sense connexió · treballant en mode local
+    <div
+      v-if="!enLinia || pendents > 0"
+      class="sticky z-40 px-4 py-1.5 text-center text-xs font-bold text-white"
+      :class="[actualitzacioDisponible ? 'top-9' : 'top-0', enLinia ? 'bg-amber-500' : 'bg-red-600']"
+    >
+      <template v-if="!enLinia">🔴 Sense connexió · treballant en mode local</template>
+      <template v-else>🟠 {{ pendents }} canvi{{ pendents === 1 ? '' : 's' }} pendent{{ pendents === 1 ? '' : 's' }} de sincronitzar…</template>
     </div>
 
     <header

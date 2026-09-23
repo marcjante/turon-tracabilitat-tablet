@@ -39,11 +39,33 @@ Amb Playwright, contra el build de producció (`vite preview`, no `vite dev`): p
 
 Amb Playwright: sincronització inicial en línia (comprovat llegint IndexedDB directament, no només la pantalla) → offline → cada vista (`/entrades`, `/lots-en-us`, `/semielaborats`, `/productes`, `/incidencies`) mostra desplegables i llistes "recents" amb dades reals, no buides; exportació a Excel offline (`baixarExcel`) genera un fitxer vàlid amb dades reals sense cap petició de xarxa.
 
+## Fase 4 — Escriptura offline de la ficha 1 (Entrada) amb UUID (completada)
+
+**Què cobreix**: crear una entrada de materia primera funciona sense connexió, amb cua de sincronització i idempotència real contra el backend. **Només Ficha 1** — la resta de fichas (lots en ús, semielaborats, productes, incidències) encara escriuen només en línia; s'estendran a la fase 5 amb el mateix patró.
+
+### Per què només Ficha 1 de moment
+
+El `codi` d'un lot de materia primera és el `lot_proveidor` que teclea la persona (ve de l'albarà) — no el genera el backend, així que dos dispositius creant offline no poden col·lidir. En canvi, semielaborats i productes generen el seu `codi` al servidor (`PREFIX-DDMMYY-NN`, seqüencial) — dos dispositius offline el mateix dia generarien el mateix codi. Aquest cas es resoldrà a la fase 5 (probablement: el codi "definitiu" es confirma en sincronitzar, no en crear).
+
+### Peces
+
+- **Backend** (`app/models/lots.py`, `alembic/versions/0003_add_client_id_to_lot.py`): columna `client_id` (UUID, nullable, unique) a `lot`. `POST /entrades` accepta `client_id` opcional; si ja existeix un lot amb aquest `client_id`, `crear_entrada()` retorna el lot existent en comptes de crear-ne un altre (`app/services/entrades.py`). Verificat en producció (Railway) enviant la mateixa petició dues vegades: mateix `id` retornat, una sola fila a la base de dades.
+- **`src/db/queue.js`**: taula `syncQueue` (Dexie, `clientId` com a clau primària). Cada operació pendent té un `gestor` (de moment només `CREATE_ENTRADA`) que sap com enviar-se i com actualitzar la còpia local quan el servidor confirma. Distingeix error de xarxa (es queda `pending`, es torna a intentar) d'error real del servidor (`ApiError` — p. ex. 409/422 — passa a `status: 'error'` i no es reintenta sol, perquè tornar-ho a enviar fallaria igual).
+- **`src/views/EntradaView.vue`**: si `api.crearEntrada()` falla per una raó que no és `ApiError` (offline, timeout...), es guarda igualment a `db.lots` amb un **id temporal negatiu** (`-Date.now()`, mai xoca amb un id real del servidor) i s'afegeix a la cua. La llista "El que has apuntat fa poc" marca aquests registres amb una etiqueta "⏳ Pendent".
+- **`src/db/sync.js`**: `refrescarTot()` crida `processarCua()` abans de baixar dades (així el pull ja inclou els lots acabats de sincronitzar amb el seu id real), i protegeix els lots encara pendents (id negatiu) perquè el `clear()`+`bulkPut()` del refresc no els esborri si encara no s'han pogut enviar.
+- **`src/main.js`**: `refrescarTot()` es crida a l'arrencada (si hi ha xarxa) i cada vegada que el navegador dispara l'event `online`.
+- **`App.vue`**: banner taronja "🟠 N canvis pendents de sincronitzar" quan `syncQueue` té elements pendents (via `liveQuery` de Dexie — reactiu de veritat, no per sondeig).
+
+### Verificat
+
+Amb Playwright, contra l'API real de Railway (no un mock): crear una entrada offline → apareix a l'instant amb l'etiqueta "Pendent" → tancar la pestanya i obrir-ne una de nova (mateix IndexedDB), encara offline → **el lot hi continua sent** → reconnectar (`online` event) → la cua es processa sola → IndexedDB queda amb **una sola** fila amb aquest codi i el seu `id` real del servidor → la cua queda buida. Cap duplicat, cap pèrdua.
+
 ## Pendent (properes fases, no implementat encara)
 
-- **Fase 4-5**: escriptures local-first amb `client_id` (UUID) — crear productes/lots/incidències sense xarxa.
-- **Fase 6-7**: cua de sincronització (`sync_queue`) + push/pull contra Railway.
-- **Fase 8**: idempotència al backend i resolució del cas límit real d'aquest domini: el `codi` de lot generat offline (`PREFIX-DDMMYY-NN`) pot col·lidir entre dos dispositius — veure l'auditoria original per al detall.
+- **Fase 5**: el mateix patró d'escriptura offline (UUID + cua) per a lots en ús, semielaborats, productes i incidències — amb la resolució del codi seqüencial per a semielaborats/productes.
+- **Fase 6**: botó "Sincronitzar ara" manual i pantalla d'estat (última sincronització, errors, operacions fallides) — ara mateix la sincronització és automàtica però invisible més enllà del banner de pendents.
+- **Fase 7**: sincronització incremental (`updated_since`) en comptes del pull complet actual — no cal encara pel volum d'un sol obrador, però evitaria baixar-ho tot cada vegada.
+- **Fase 8**: conflictes reals entre dispositius (dos tablets modificant el mateix registre) — encara no s'ha donat el cas perquè només hi ha escriptura offline a Ficha 1, que és només-creació (no hi ha "editar", per tant no hi ha conflicte d'edició possible encara).
 - **Fase 9**: exportació/importació de còpia de seguretat local.
 
 Aquest document s'ampliarà amb una secció per fase a mesura que es completin.

@@ -6,6 +6,7 @@
 import { reactive } from 'vue'
 import { db } from './index.js'
 import { api } from '../api.js'
+import { processarCua } from './queue.js'
 
 export const estatSincronitzacio = reactive({
   sincronitzant: false,
@@ -16,6 +17,10 @@ export async function refrescarTot() {
   estatSincronitzacio.sincronitzant = true
   estatSincronitzacio.ultimErrorMissatge = null
   try {
+    // Primer s'intenten enviar les escriptures pendents (fase 4): així
+    // el "pull" que ve després ja les inclou amb el seu id real.
+    await processarCua().catch(() => {})
+
     const [ingredients, proveidors, elaboracions, receptes, entrades, semielaborats, productes, lotsEnUsHistorial, incidencies] =
       await Promise.all([
         api.ingredients(),
@@ -52,12 +57,17 @@ export async function refrescarTot() {
       'rw',
       [db.ingredients, db.proveidors, db.elaboracions, db.receptes, db.lots, db.lotsEnUs, db.incidencies, db.meta],
       async () => {
+        // Un lot creat offline que encara no s'ha pogut sincronitzar
+        // (id temporal negatiu) no ha de desaparèixer només perquè
+        // arriba una sincronització de la resta de dades.
+        const pendents = await db.lots.where('id').below(0).toArray()
+
         await Promise.all([
           db.ingredients.clear().then(() => db.ingredients.bulkPut(ingredients)),
           db.proveidors.clear().then(() => db.proveidors.bulkPut(proveidors)),
           db.elaboracions.clear().then(() => db.elaboracions.bulkPut(elaboracions)),
           db.receptes.clear().then(() => db.receptes.bulkPut(receptes)),
-          db.lots.clear().then(() => db.lots.bulkPut([...lots, ...lotsAnullats])),
+          db.lots.clear().then(() => db.lots.bulkPut([...lots, ...lotsAnullats, ...pendents])),
           db.lotsEnUs.clear().then(() => db.lotsEnUs.bulkPut(lotsEnUsHistorial)),
           db.incidencies.clear().then(() => db.incidencies.bulkPut(incidencies)),
         ])

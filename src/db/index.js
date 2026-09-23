@@ -24,6 +24,14 @@ db.version(1).stores({
   meta: 'clau',
 })
 
+// Fase 4: cua de sincronització per a escriptures fetes sense
+// connexió. `clientId` és la clau primària (el mateix UUID que porta
+// el lot creat localment) — així mai hi ha dos elements de cua per a
+// la mateixa operació encara que es truqui dues vegades per error.
+db.version(2).stores({
+  syncQueue: 'clientId, status, createdAt',
+})
+
 export async function obtenirDeviceId() {
   const existent = await db.meta.get('deviceId')
   if (existent) return existent.valor
