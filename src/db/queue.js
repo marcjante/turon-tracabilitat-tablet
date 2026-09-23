@@ -1,7 +1,7 @@
-// Cua de sincronització (fase 4): operacions creades sense connexió,
-// pendents d'enviar a Railway. `clientId` (UUID) és la clau primària
-// tant a la cua com al camp `client_id` que el backend fa servir per
-// no duplicar — veure app/services/entrades.py.
+// Cua de sincronització (fases 4-5): operacions creades sense
+// connexió, pendents d'enviar a Railway. `clientId` (UUID) és la clau
+// primària tant a la cua com al camp `client_id` que el backend fa
+// servir per no duplicar — veure app/services/*.py.
 
 import { reactive } from 'vue'
 import { db } from './index.js'
@@ -33,14 +33,40 @@ export async function afegirAlaCua({ clientId, operation, entity, tempId, payloa
   })
 }
 
+// Taula on viu el registre "pendent" (id temporal negatiu) de cada
+// tipus d'entitat, per poder-lo esborrar un cop el servidor confirma.
+const taulaPerEntitat = {
+  lot: () => db.lots,
+  lotEnUs: () => db.lotsEnUs,
+  incidencia: () => db.incidencies,
+}
+
 // Cada operació sap com enviar-se i com actualitzar la còpia local un
-// cop el servidor confirma. Només CREATE_ENTRADA existeix per ara — la
-// fase 5 hi afegirà la resta de fichas amb el mateix patró.
+// cop el servidor confirma.
 const gestors = {
   async CREATE_ENTRADA(payload) {
     const creada = await api.crearEntrada(payload)
     await db.lots.put({ ...creada, tipus: 'materia_primera' })
-    return creada
+  },
+  async CREATE_LOT_EN_US(payload) {
+    const creat = await api.obrirLotEnUs(payload)
+    await db.lotsEnUs.put(creat)
+  },
+  async TANCAR_LOT_EN_US(payload) {
+    const tancat = await api.tancarLotEnUs(payload.lot_en_us_id, { fi: payload.fi })
+    await db.lotsEnUs.put(tancat)
+  },
+  async CREATE_SEMIELABORAT(payload) {
+    const creat = await api.crearSemielaborat(payload)
+    await db.lots.put({ ...creat, tipus: 'semielaborat' })
+  },
+  async CREATE_PRODUCTE(payload) {
+    const creat = await api.crearProducte(payload)
+    await db.lots.put({ ...creat, tipus: 'producte' })
+  },
+  async CREATE_INCIDENCIA(payload) {
+    const creada = await api.crearIncidencia(payload)
+    await db.incidencies.put(creada)
   },
 }
 
@@ -50,13 +76,18 @@ export async function processarCua() {
   let processats = 0
   let errors = 0
   try {
-    const items = await db.syncQueue.where('status').equals('pending').toArray()
+    // Ordre cronològic, no l'ordre "natural" de clientId (UUID): moltes
+    // operacions depenen causalment de l'anterior (p. ex. "crear
+    // semielaborat" pot necessitar que "obrir lot en ús" ja s'hagi
+    // processat), i un UUID no té cap relació amb quan es va crear.
+    const items = (await db.syncQueue.where('status').equals('pending').toArray())
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     for (const item of items) {
       const gestor = gestors[item.operation]
       if (!gestor) continue
       try {
         await gestor(item.payload)
-        if (item.tempId != null) await db.lots.delete(item.tempId)
+        if (item.tempId != null) await taulaPerEntitat[item.entity]?.()?.delete(item.tempId)
         await db.syncQueue.delete(item.clientId)
         processats++
       } catch (err) {

@@ -21,7 +21,7 @@ async function cercar() {
   cercant.value = true
   cercat.value = true
   try {
-    const trobats = await repo.cercarLots(query.value.trim())
+    const trobats = (await repo.cercarLots(query.value.trim())).filter((l) => l.id > 0) // exclou lots encara pendents de sincronitzar (no tenen id real al servidor)
     resultats.value = props.tipusFiltre ? trobats.filter((l) => l.tipus === props.tipusFiltre) : trobats
   } catch {
     resultats.value = []

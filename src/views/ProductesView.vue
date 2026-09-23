@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
 import { repo } from '../db/repo.js'
 import { db } from '../db/index.js'
+import { afegirAlaCua } from '../db/queue.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
@@ -60,7 +61,9 @@ onMounted(carregar)
 const elaboracioNom = (id) => elaboracions.value.find((e) => e.id === id)?.nom || `#${id}`
 
 function lotsPer(semielaboratId) {
-  return semielaboratsDisponibles.value.filter((l) => l.elaboracio_id === semielaboratId)
+  // Només lots ja sincronitzats: no es pot consumir un semielaborat
+  // que el servidor encara no coneix.
+  return semielaboratsDisponibles.value.filter((l) => l.elaboracio_id === semielaboratId && l.id > 0)
 }
 
 async function carregarRecepta() {
@@ -90,21 +93,24 @@ async function enviar() {
     }
   }
   enviant.value = true
+  const clientId = crypto.randomUUID()
+  const lots_semielaborats = {}
+  for (const [semId, lotId] of Object.entries(lotsSemielaborats.value)) {
+    lots_semielaborats[semId] = Number(lotId)
+  }
+  const payload = {
+    elaboracio_id: Number(form.value.elaboracio_id),
+    quantitat: Number(form.value.quantitat),
+    unitat: form.value.unitat,
+    elaborat_at: new Date(form.value.elaborat_at).toISOString(),
+    torn: form.value.torn,
+    responsable: responsable.value,
+    observacions: form.value.observacions || null,
+    lots_semielaborats,
+    client_id: clientId,
+  }
   try {
-    const lots_semielaborats = {}
-    for (const [semId, lotId] of Object.entries(lotsSemielaborats.value)) {
-      lots_semielaborats[semId] = Number(lotId)
-    }
-    const resultat = await api.crearProducte({
-      elaboracio_id: Number(form.value.elaboracio_id),
-      quantitat: Number(form.value.quantitat),
-      unitat: form.value.unitat,
-      elaborat_at: new Date(form.value.elaborat_at).toISOString(),
-      torn: form.value.torn,
-      responsable: responsable.value,
-      observacions: form.value.observacions || null,
-      lots_semielaborats,
-    })
+    const resultat = await api.crearProducte(payload)
     await db.lots.put({ ...resultat, tipus: 'producte' })
     if (resultat.recepta_incompleta) {
       toast.error(`Lot ${resultat.codi} creat, però la recepta és incompleta: revisa els consums`)
@@ -116,7 +122,32 @@ async function enviar() {
     await carregar()
     await carregarRecepta()
   } catch (err) {
-    toast.error(err instanceof ApiError ? err.detail : 'Error de connexió')
+    if (err instanceof ApiError) {
+      toast.error(err.detail)
+    } else {
+      const idTemporal = -Date.now()
+      await db.lots.put({
+        id: idTemporal,
+        client_id: clientId,
+        tipus: 'producte',
+        codi: null,
+        creat_at: new Date().toISOString(),
+        responsable: payload.responsable,
+        observacions: payload.observacions,
+        elaboracio_id: payload.elaboracio_id,
+        quantitat: payload.quantitat,
+        unitat: payload.unitat,
+        elaborat_at: payload.elaborat_at,
+        torn: payload.torn,
+        anulat_per_id: null,
+      })
+      await afegirAlaCua({ clientId, operation: 'CREATE_PRODUCTE', entity: 'lot', tempId: idTemporal, payload })
+      toast.success('Guardat en local (es sincronitzarà sol, amb el codi definitiu)')
+      const elaboracioPrevia = form.value.elaboracio_id
+      form.value = { elaboracio_id: elaboracioPrevia, quantitat: '', unitat: form.value.unitat, elaborat_at: araLocal(), torn: form.value.torn, observacions: '' }
+      await carregar()
+      await carregarRecepta()
+    }
   } finally {
     enviant.value = false
   }
@@ -220,7 +251,11 @@ async function exportar() {
       <template v-else>
         <ul v-if="recents.length" class="space-y-2">
           <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
-            <div class="font-bold">{{ r.codi }} — {{ elaboracioNom(r.elaboracio_id) }}</div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold">{{ r.codi || elaboracioNom(r.elaboracio_id) }}</span>
+              <span v-if="r.id < 0" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⏳ Pendent (codi pendent)</span>
+              <span v-else>— {{ elaboracioNom(r.elaboracio_id) }}</span>
+            </div>
             <div class="text-slate-500">{{ r.quantitat }} {{ r.unitat }} · {{ r.torn }} · {{ r.responsable }}</div>
           </li>
         </ul>

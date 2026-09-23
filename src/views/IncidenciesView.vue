@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
 import { repo } from '../db/repo.js'
 import { db } from '../db/index.js'
+import { afegirAlaCua } from '../db/queue.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
@@ -78,18 +79,21 @@ async function enviar() {
     return
   }
   enviant.value = true
+  const clientId = crypto.randomUUID()
+  const payload = {
+    tipus: form.value.tipus,
+    responsable: responsable.value,
+    lot_afectat_id: form.value.lot_afectat_id,
+    lot_anterior_id: form.value.lot_anterior_id,
+    lot_nou_id: form.value.lot_nou_id,
+    motiu: form.value.motiu,
+    mesura_adoptada: form.value.mesura_adoptada || null,
+    comprovacio: form.value.comprovacio,
+    comprovat_per: form.value.comprovacio ? form.value.comprovat_per || null : null,
+    client_id: clientId,
+  }
   try {
-    const creada = await api.crearIncidencia({
-      tipus: form.value.tipus,
-      responsable: responsable.value,
-      lot_afectat_id: form.value.lot_afectat_id,
-      lot_anterior_id: form.value.lot_anterior_id,
-      lot_nou_id: form.value.lot_nou_id,
-      motiu: form.value.motiu,
-      mesura_adoptada: form.value.mesura_adoptada || null,
-      comprovacio: form.value.comprovacio,
-      comprovat_per: form.value.comprovacio ? form.value.comprovat_per || null : null,
-    })
+    const creada = await api.crearIncidencia(payload)
     await db.incidencies.put(creada)
     toast.success('Incidència registrada')
     form.value = {
@@ -98,7 +102,35 @@ async function enviar() {
     }
     await carregar()
   } catch (err) {
-    toast.error(err instanceof ApiError ? err.detail : 'Error de connexió')
+    if (err instanceof ApiError) {
+      toast.error(err.detail)
+    } else {
+      const idTemporal = -Date.now()
+      await db.incidencies.put({
+        id: idTemporal,
+        client_id: clientId,
+        tipus: payload.tipus,
+        data_hora: new Date().toISOString(),
+        responsable: payload.responsable,
+        lot_afectat_id: payload.lot_afectat_id,
+        lot_anterior_id: payload.lot_anterior_id,
+        lot_nou_id: payload.lot_nou_id,
+        motiu: payload.motiu,
+        mesura_adoptada: payload.mesura_adoptada,
+        comprovacio: payload.comprovacio,
+        comprovat_per: payload.comprovat_per,
+        // La traçabilitat dels afectats la calcula sempre el servidor
+        // (WITH RECURSIVE) — es completa quan es sincronitza de veritat.
+        afectats_snapshot: {},
+      })
+      await afegirAlaCua({ clientId, operation: 'CREATE_INCIDENCIA', entity: 'incidencia', tempId: idTemporal, payload })
+      toast.success('Guardat en local (es sincronitzarà sol)')
+      form.value = {
+        tipus: 'canvi_lot', responsable: '', lot_afectat_id: null, lot_anterior_id: null, lot_nou_id: null,
+        motiu: '', mesura_adoptada: '', comprovacio: false, comprovat_per: '',
+      }
+      await carregar()
+    }
   } finally {
     enviant.value = false
   }
@@ -189,8 +221,9 @@ async function exportar() {
               @click="toggleExpandir(i.id)"
             >
               <div>
-                <div class="font-bold">
-                  {{ tipusInfo[i.tipus]?.e }} {{ tipusInfo[i.tipus]?.l || i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}
+                <div class="flex items-center gap-2 font-bold">
+                  <span>{{ tipusInfo[i.tipus]?.e }} {{ tipusInfo[i.tipus]?.l || i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}</span>
+                  <span v-if="i.id < 0" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⏳ Pendent</span>
                 </div>
                 <div class="text-slate-500">{{ i.motiu }}</div>
                 <div class="text-slate-400">{{ i.responsable }} · {{ new Date(i.data_hora).toLocaleString() }}</div>

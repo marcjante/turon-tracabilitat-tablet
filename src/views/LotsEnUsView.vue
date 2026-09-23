@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
 import { repo } from '../db/repo.js'
 import { db } from '../db/index.js'
+import { afegirAlaCua } from '../db/queue.js'
 import { useToast } from '../toast.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
 import { fullLotsEnUs } from '../utils/exportFulls.js'
@@ -48,7 +49,9 @@ async function carregarLotsIngredient() {
   form.value.lot_id = ''
   if (!form.value.ingredient_id) return
   try {
-    lotsIngredient.value = await repo.entrades({ ingredient_id: form.value.ingredient_id })
+    // Només lots ja sincronitzats: no es pot obrir un lot en ús
+    // referenciant un lot que el servidor encara no coneix.
+    lotsIngredient.value = (await repo.entrades({ ingredient_id: form.value.ingredient_id })).filter((l) => l.id > 0)
   } catch (err) {
     toast.error(err.detail || err.message)
   }
@@ -60,13 +63,16 @@ async function enviar() {
     return
   }
   enviant.value = true
+  const clientId = crypto.randomUUID()
+  const payload = {
+    ingredient_id: Number(form.value.ingredient_id),
+    lot_id: Number(form.value.lot_id),
+    inici: new Date(form.value.inici).toISOString(),
+    observacions: form.value.observacions || null,
+    client_id: clientId,
+  }
   try {
-    const nou = await api.obrirLotEnUs({
-      ingredient_id: Number(form.value.ingredient_id),
-      lot_id: Number(form.value.lot_id),
-      inici: new Date(form.value.inici).toISOString(),
-      observacions: form.value.observacions || null,
-    })
+    const nou = await api.obrirLotEnUs(payload)
     // Regla de negoci 1: obrir-ne un de nou tanca automàticament el que
     // ja estava obert d'aquest ingredient (fi = inici del nou).
     const antic = oberts.value.find((o) => o.ingredient_id === nou.ingredient_id)
@@ -77,20 +83,57 @@ async function enviar() {
     lotsIngredient.value = []
     await carregar()
   } catch (err) {
-    toast.error(err instanceof ApiError ? err.detail : 'Error de connexió')
+    if (err instanceof ApiError) {
+      toast.error(err.detail)
+    } else {
+      const idTemporal = -Date.now()
+      const antic = oberts.value.find((o) => o.ingredient_id === payload.ingredient_id)
+      if (antic) await db.lotsEnUs.put({ ...antic, fi: payload.inici })
+      await db.lotsEnUs.put({
+        id: idTemporal,
+        client_id: clientId,
+        ingredient_id: payload.ingredient_id,
+        lot_id: payload.lot_id,
+        inici: payload.inici,
+        fi: null,
+        observacions: payload.observacions,
+      })
+      await afegirAlaCua({ clientId, operation: 'CREATE_LOT_EN_US', entity: 'lotEnUs', tempId: idTemporal, payload })
+      toast.success('Guardat en local (es sincronitzarà sol)')
+      form.value = { ingredient_id: '', lot_id: '', inici: araLocal(), observacions: '' }
+      lotsIngredient.value = []
+      await carregar()
+    }
   } finally {
     enviant.value = false
   }
 }
 
 async function tancar(id) {
+  if (id < 0) {
+    toast.error('Aquest lot encara s\'ha de sincronitzar abans de poder-lo tancar')
+    return
+  }
+  const fi = new Date().toISOString()
+  const clientId = crypto.randomUUID()
   try {
-    const tancat = await api.tancarLotEnUs(id, {})
+    const tancat = await api.tancarLotEnUs(id, { fi })
     await db.lotsEnUs.put(tancat)
     toast.success('Lot tancat')
     await carregar()
   } catch (err) {
-    toast.error(err.detail || err.message)
+    if (err instanceof ApiError) {
+      toast.error(err.detail)
+    } else {
+      const obert = oberts.value.find((o) => o.id === id)
+      if (obert) await db.lotsEnUs.put({ ...obert, fi })
+      await afegirAlaCua({
+        clientId, operation: 'TANCAR_LOT_EN_US', entity: 'lotEnUs', tempId: null,
+        payload: { lot_en_us_id: id, fi },
+      })
+      toast.success('Guardat en local (es sincronitzarà sol)')
+      await carregar()
+    }
   }
 }
 

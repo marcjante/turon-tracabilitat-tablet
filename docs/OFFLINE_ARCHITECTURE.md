@@ -60,12 +60,31 @@ El `codi` d'un lot de materia primera és el `lot_proveidor` que teclea la perso
 
 Amb Playwright, contra l'API real de Railway (no un mock): crear una entrada offline → apareix a l'instant amb l'etiqueta "Pendent" → tancar la pestanya i obrir-ne una de nova (mateix IndexedDB), encara offline → **el lot hi continua sent** → reconnectar (`online` event) → la cua es processa sola → IndexedDB queda amb **una sola** fila amb aquest codi i el seu `id` real del servidor → la cua queda buida. Cap duplicat, cap pèrdua.
 
+## Fase 5 — Escriptura offline de la resta de fichas (completada)
+
+**Què cobreix**: lots en ús (obrir i tancar), semielaborats, productes i incidències funcionen sense connexió amb el mateix patró que la fase 4 (UUID, cua, idempotència). Amb això, **les 5 fichas** funcionen completament offline.
+
+### Com es va resoldre el risc del codi seqüencial (semielaborats/productes)
+
+La solució no és calcular el codi al dispositiu (col·lidiria entre dispositius), sinó **no calcular-lo mai localment**: el registre pendent es guarda amb `codi: null` i una etiqueta "codi pendent" a la interfície; `app/services/codis.py` no canvia gens — el codi definitiu (`PREFIX-DDMMYY-NN`) es genera exactament igual que avui, només que en el moment en què la creació arriba de veritat al servidor (en sincronitzar), no en el moment de crear-la al dispositiu. Verificat: un semielaborat creat offline es guarda amb `codi: null` i, en sincronitzar, rep un codi real (`PPE-230926-01`) assignat pel servidor.
+
+### Peces noves
+
+- **Backend**: `client_id` afegit també a `lotenus` i `incidencia` (`alembic/versions/0004_...py`) — `lot` ja el tenia de la fase 4 i cobreix semielaborats/productes perquè comparteixen taula. Idempotència a `obrir_lot_en_us`, `crear_produccio` i `crear_incidencia` (totes retornen l'existent per `client_id` en comptes de repetir efectes secundaris — tancar l'anterior lot en ús, consumir un lot, calcular `traca_endavant` — en un reintent). `tancar_lot_en_us` és idempotent per **estat** (mateix `fi` ja guardat), no per `client_id`, perquè és una transició d'estat, no una creació.
+- **`src/db/queue.js`**: gestors nous `CREATE_LOT_EN_US`, `TANCAR_LOT_EN_US`, `CREATE_SEMIELABORAT`, `CREATE_PRODUCTE`, `CREATE_INCIDENCIA`.
+- **Bug real trobat i corregit durant la verificació**: la cua processava els elements en l'ordre "natural" de `clientId` (un UUID, sense relació amb quan es va crear), no per `createdAt`. Com que algunes operacions depenen causalment de l'anterior (p. ex. un semielaborat pot necessitar que "obrir lot en ús" ja s'hagi processat), processar-les en l'ordre equivocat produïa errors reals del servidor (409) que no haurien passat si s'haguessin enviat en l'ordre en què la persona les va fer. Corregit ordenant per `createdAt` abans de processar.
+- **Referències a entitats encara no sincronitzades**: cap vista permet triar com a referència un registre amb id pendent (negatiu) — `LotSearchField` (incidències, traçabilitat) i el selector de lots de semielaborat a Productes filtren `id > 0`. És una frontera de disseny deliberada per no haver de resoldre encara el remapeig d'ids entre dispositius per a referències creuades (p. ex. crear una incidència sobre un lot que un altre dispositiu encara no ha sincronitzat) — es revisarà si cal a una fase posterior.
+- **Límit conegut**: `tancar_lot_en_us` offline actualitza un registre amb id **positiu** (real), no negatiu — a diferència de les creacions, `refrescarTot()` només protegeix explícitament els ids negatius de ser sobreescrits pel pull. Si el dispositiu creu que està en línia però el `processarCua()` d'aquell mateix refresc falla (p. ex. el servidor respon però amb error temporal), el pull posterior podria revertir un tancament fet en local fins que es torni a sincronitzar. Cas límit poc probable (la finestra és molt curta), documentat aquí en comptes de solucionar-lo ara amb un sistema de "registres bruts" més gran.
+
+### Verificat
+
+Amb Playwright, contra l'API real de Railway: obrir un lot en ús offline + crear una incidència offline (referenciant un lot ja sincronitzat) → reconnectar → totes dues sincronitzen amb el seu id real, `afectats_snapshot` calculat pel servidor, cua buida; crear un semielaborat offline amb una recepta que exigeix un ingredient concret sense tenir-lo obert → error real del servidor capturat correctament (`status: 'error'`, no bucle infinit); crear un semielaborat offline sense aquest problema → sincronitza amb un codi real assignat pel servidor. Idempotència de `tancar_lot_en_us` (mateix `fi`) coberta per test de backend (`test_tancar_lot_amb_mateix_fi_es_idempotent`).
+
 ## Pendent (properes fases, no implementat encara)
 
-- **Fase 5**: el mateix patró d'escriptura offline (UUID + cua) per a lots en ús, semielaborats, productes i incidències — amb la resolució del codi seqüencial per a semielaborats/productes.
 - **Fase 6**: botó "Sincronitzar ara" manual i pantalla d'estat (última sincronització, errors, operacions fallides) — ara mateix la sincronització és automàtica però invisible més enllà del banner de pendents.
 - **Fase 7**: sincronització incremental (`updated_since`) en comptes del pull complet actual — no cal encara pel volum d'un sol obrador, però evitaria baixar-ho tot cada vegada.
-- **Fase 8**: conflictes reals entre dispositius (dos tablets modificant el mateix registre) — encara no s'ha donat el cas perquè només hi ha escriptura offline a Ficha 1, que és només-creació (no hi ha "editar", per tant no hi ha conflicte d'edició possible encara).
+- **Fase 8**: conflictes reals entre dispositius (dos tablets modificant el mateix registre) — encara no s'ha donat el cas perquè totes les escriptures offline són de creació (o, per a `tancar_lot_en_us`, una transició d'estat idempotent), no edició lliure.
 - **Fase 9**: exportació/importació de còpia de seguretat local.
 
 Aquest document s'ampliarà amb una secció per fase a mesura que es completin.

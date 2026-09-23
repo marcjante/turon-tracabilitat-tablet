@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
 import { repo } from '../db/repo.js'
 import { db } from '../db/index.js'
+import { afegirAlaCua } from '../db/queue.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
@@ -60,16 +61,19 @@ async function enviar() {
     return
   }
   enviant.value = true
+  const clientId = crypto.randomUUID()
+  const payload = {
+    elaboracio_id: Number(form.value.elaboracio_id),
+    quantitat: Number(form.value.quantitat),
+    unitat: form.value.unitat,
+    elaborat_at: new Date(form.value.elaborat_at).toISOString(),
+    torn: form.value.torn,
+    responsable: responsable.value,
+    observacions: form.value.observacions || null,
+    client_id: clientId,
+  }
   try {
-    const resultat = await api.crearSemielaborat({
-      elaboracio_id: Number(form.value.elaboracio_id),
-      quantitat: Number(form.value.quantitat),
-      unitat: form.value.unitat,
-      elaborat_at: new Date(form.value.elaborat_at).toISOString(),
-      torn: form.value.torn,
-      responsable: responsable.value,
-      observacions: form.value.observacions || null,
-    })
+    const resultat = await api.crearSemielaborat(payload)
     await db.lots.put({ ...resultat, tipus: 'semielaborat' })
     if (resultat.recepta_incompleta) {
       toast.error(`Lot ${resultat.codi} creat, però la recepta és incompleta: revisa els consums`)
@@ -80,7 +84,35 @@ async function enviar() {
     form.value = { elaboracio_id: elaboracioPrevia, quantitat: '', unitat: form.value.unitat, elaborat_at: araLocal(), torn: form.value.torn, observacions: '' }
     await carregar()
   } catch (err) {
-    toast.error(err instanceof ApiError ? err.detail : 'Error de connexió')
+    if (err instanceof ApiError) {
+      toast.error(err.detail)
+    } else {
+      const idTemporal = -Date.now()
+      // El codi el genera sempre el servidor (PREFIX-DDMMYY-NN) —
+      // intentar-lo calcular al dispositiu podria col·lidir amb un
+      // altre dispositiu offline el mateix dia. Es mostra pendent
+      // fins que es sincronitza de veritat.
+      await db.lots.put({
+        id: idTemporal,
+        client_id: clientId,
+        tipus: 'semielaborat',
+        codi: null,
+        creat_at: new Date().toISOString(),
+        responsable: payload.responsable,
+        observacions: payload.observacions,
+        elaboracio_id: payload.elaboracio_id,
+        quantitat: payload.quantitat,
+        unitat: payload.unitat,
+        elaborat_at: payload.elaborat_at,
+        torn: payload.torn,
+        anulat_per_id: null,
+      })
+      await afegirAlaCua({ clientId, operation: 'CREATE_SEMIELABORAT', entity: 'lot', tempId: idTemporal, payload })
+      toast.success('Guardat en local (es sincronitzarà sol, amb el codi definitiu)')
+      const elaboracioPrevia = form.value.elaboracio_id
+      form.value = { elaboracio_id: elaboracioPrevia, quantitat: '', unitat: form.value.unitat, elaborat_at: araLocal(), torn: form.value.torn, observacions: '' }
+      await carregar()
+    }
   } finally {
     enviant.value = false
   }
@@ -166,7 +198,11 @@ async function exportar() {
       <template v-else>
         <ul v-if="recents.length" class="space-y-2">
           <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
-            <div class="font-bold">{{ r.codi }} — {{ elaboracioNom(r.elaboracio_id) }}</div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold">{{ r.codi || elaboracioNom(r.elaboracio_id) }}</span>
+              <span v-if="r.id < 0" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⏳ Pendent (codi pendent)</span>
+              <span v-else>— {{ elaboracioNom(r.elaboracio_id) }}</span>
+            </div>
             <div class="text-slate-500">{{ r.quantitat }} {{ r.unitat }} · {{ r.torn }} · {{ r.responsable }}</div>
           </li>
         </ul>
