@@ -108,9 +108,32 @@ Amb Playwright: la pestanya mostra última sincronització, dispositiu i espai u
 
 Amb Playwright: exportar → esborrar un registre localment (simulant pèrdua de dades) → recarregar l'app → importar el backup descarregat → el registre torna a ser-hi, amb el mateix id.
 
+## Fase 8 — Conflicte real entre dispositius (completada)
+
+**Correcció respecte al que deia aquest document abans**: es va afirmar que no hi havia cap escenari de conflicte real perquè totes les escriptures offline són creacions idempotents. Això era **fals** — es va detectar (avís de l'usuari, no pas troballa pròpia) un conflicte real i concret a `obrir_lot_en_us`.
+
+### El conflicte
+
+Dues tablets, cadascuna sense connexió, poden obrir un lot en ús del mateix ingredient. La regla de negoci diu "tanca l'anterior obert i n'obre un de nou", però l'`obrir_lot_en_us()` original assumia que **la petició que arriba ara al servidor és la més recent** — cert quan hi ha un sol dispositiu en línia, fals quan dues cues offline sincronitzen en un ordre que no té per què coincidir amb l'ordre real dels seus `inici`. Exemple: tablet A obre a les 11:00 i sincronitza de seguida; tablet B havia obert a les 9:00 però estava sense xarxa i sincronitza més tard. Amb la lògica antiga, la sincronització de B (9:00) trobaria "el lot obert" (A, de les 11:00) i el tancaria a les 9:00 — un lot que *encara no existia* a les 9:00 apareixeria tancat abans de començar. Corrupció real de la traçabilitat, no un cas hipotètic.
+
+### La solució
+
+`obrir_lot_en_us()` (`app/services/lots_en_us.py`) ja no busca "el registre obert" i el tanca a cegues. Busca el **predecessor** i **successor** reals per `inici` entre els registres ja existents d'aquest ingredient, i s'insereix al punt correcte de la línia de temps:
+- el `fi` del nou registre és l'`inici` del seu successor real (si n'hi ha), sigui quin sigui l'ordre en què han arribat al servidor;
+- el predecessor només es tanca (`fi = inici del nou`) si encara estava obert (`fi IS NULL`) — mai si ja estava tancat, per no esborrar un buit tancat manualment (p. ex. "es va acabar i no hi havia recanvi fins més tard").
+
+Amb això, el resultat final **convergeix igual sigui quin sigui l'ordre de sincronització** — la propietat que fa que dos dispositius offline no puguin corrompre's l'historial mútuament.
+
+### Límit conegut i deliberat
+
+Si el predecessor ja estava tancat manualment amb un `fi` concret, i una tercera inserció (d'un tercer dispositiu, encara més endarrerida) cau dins d'aquell buit ja tancat, no es retoca — el model actual no distingeix un tancament "automàtic" (perquè en va obrir un altre) d'un de "manual" (la persona ho va tancar expressament), i sobreescriure's a cegues en aquest cas podria esborrar un buit real. Amb dos dispositius (el cas real d'un sol obrador amb una o dues tablets) està resolt del tot; amb tres o més sincronitzant fora d'ordre entre tancaments manuals, queda aquest cas residual, documentat en comptes de resolt amb una heurística fràgil.
+
+### Verificat
+
+Test de backend (`test_dos_dispositius_offline_obren_en_ordre_invers`): dos dispositius obren offline en ordre cronològic invers (el més antic sincronitza després) — el resultat final reflecteix l'ordre real dels `inici`, i `lot_obert_per_ingredient()` (la consulta que fan servir semielaborats/productes per vincular-se automàticament) retorna el lot correcte per a qualsevol instant, no el que "ha guanyat" per haver arribat abans al servidor.
+
 ## Pendent (no implementat)
 
 - **Fase 7 (sincronització incremental)**: es va avaluar i **es descarta per ara, deliberadament**. Fer-ho bé requereix `updated_at` a totes les taules (no només `lot`, que ja el necessitava per a `client_id`) i, més important, una estratègia de tombstones per als esborrats reals (`DELETE /receptes/{id}` avui esborra la fila de veritat — sense un registre de "això s'ha esborrat", un dispositiu que ja tenia la recepta en local mai sabria que ha de desaparèixer). És una quantitat de feina comparable a una fase sencera per a un benefici (menys dades baixades) que no aporta res amb el volum d'un sol obrador. Es recomana revisar-ho si l'aplicació creix a múltiples obradors/tablets amb catàlegs grans.
-- **Fase 8 (conflictes reals entre dispositius)**: **no s'ha implementat perquè, amb les escriptures actuals, no hi ha cap operació on pugui passar de veritat.** Totes són creacions (idempotents per `client_id`) o, en el cas de `tancar_lot_en_us`, una transició d'estat idempotent per valor (`fi`). No hi ha cap "editar un camp existent" en tota l'aplicació — ni online ni offline — així que no hi ha cap escenari real de "dos dispositius han canviat el mateix camp de manera diferent" per resoldre. Si en el futur s'afegeix edició lliure (p. ex. corregir el nom d'un ingredient ja creat), **aleshores** caldrà `updated_at` + detecció de conflicte abans de sobreescriure — documentar-ho aquí seria prematur ara mateix.
 
 Aquest document s'ampliarà si això canvia.
