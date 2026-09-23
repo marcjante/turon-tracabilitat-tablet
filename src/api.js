@@ -74,6 +74,7 @@ export const api = {
 
   // Gestió de lots
   cercarLots: (codi) => get('/lots/cerca', { codi }),
+  obtenirLot: (id) => get(`/lots/${id}`),
   anularLot: (id, body) => post(`/lots/${id}/anular`, body),
   afegirConsum: (lotId, body) => post(`/lots/${lotId}/consums`, body),
   anularConsum: (lotId, lotConsumitId) => del(`/lots/${lotId}/consums`, { lot_consumit_id: lotConsumitId }),

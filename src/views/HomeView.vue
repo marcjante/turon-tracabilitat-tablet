@@ -1,4 +1,24 @@
 <script setup>
+import { ref } from 'vue'
+import { useToast } from '../toast.js'
+import { baixarExcel } from '../utils/baixarExcel.js'
+import { totsElsFulls } from '../utils/exportFulls.js'
+
+const toast = useToast()
+const descarregant = ref(false)
+
+async function exportarTot() {
+  descarregant.value = true
+  try {
+    const fulls = await totsElsFulls()
+    await baixarExcel(fulls, `turon-tracabilitat-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  } catch (err) {
+    toast.error('No s\'ha pogut generar l\'Excel: ' + (err.detail || err.message))
+  } finally {
+    descarregant.value = false
+  }
+}
+
 const items = [
   { to: 'entrades', label: 'Entrada de matèries primeres', hint: 'Ficha 1', emoji: '📥' },
   { to: 'lots-en-us', label: 'Lots en ús', hint: 'Ficha 2', emoji: '🔄' },
@@ -23,4 +43,13 @@ const items = [
       <span class="text-xs text-slate-500">{{ item.hint }}</span>
     </router-link>
   </div>
+
+  <button
+    type="button"
+    :disabled="descarregant"
+    class="mt-4 w-full rounded-2xl bg-white p-4 text-center text-sm font-semibold text-indigo-600 shadow-sm active:bg-slate-50 disabled:opacity-50"
+    @click="exportarTot"
+  >
+    {{ descarregant ? 'Generant l\'Excel…' : '📊 Descarregar tota la traçabilitat (Excel)' }}
+  </button>
 </template>

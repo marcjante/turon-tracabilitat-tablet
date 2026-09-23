@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
+import { baixarExcel } from '../utils/baixarExcel.js'
+import { fullSemielaborats } from '../utils/exportFulls.js'
 import FormField from '../components/FormField.vue'
 
 const toast = useToast()
@@ -12,6 +14,7 @@ const elaboracions = ref([])
 const recents = ref([])
 const loading = ref(true)
 const enviant = ref(false)
+const descarregant = ref(false)
 
 function araLocal() {
   const d = new Date()
@@ -77,6 +80,18 @@ async function enviar() {
     enviant.value = false
   }
 }
+
+async function exportar() {
+  descarregant.value = true
+  try {
+    const full = await fullSemielaborats()
+    await baixarExcel([full], `turon-semielaborats-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  } catch (err) {
+    toast.error('No s\'ha pogut generar l\'Excel: ' + (err.detail || err.message))
+  } finally {
+    descarregant.value = false
+  }
+}
 </script>
 
 <template>
@@ -124,7 +139,17 @@ async function enviar() {
     </form>
 
     <section>
-      <h2 class="mb-2 text-sm font-semibold text-slate-500">Últims semielaborats</h2>
+      <div class="mb-2 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-500">Últims semielaborats</h2>
+        <button
+          type="button"
+          :disabled="descarregant"
+          class="text-sm font-medium text-indigo-600 disabled:opacity-50"
+          @click="exportar"
+        >
+          {{ descarregant ? 'Generant…' : '📥 Descarregar Excel' }}
+        </button>
+      </div>
       <p v-if="loading" class="text-sm text-slate-400">Carregant…</p>
       <ul v-else class="space-y-2">
         <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-sm shadow-sm">

@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
 import { useToast } from '../toast.js'
 import { useResponsable } from '../responsable.js'
+import { baixarExcel } from '../utils/baixarExcel.js'
+import { fullIncidencies } from '../utils/exportFulls.js'
 import FormField from '../components/FormField.vue'
 import LotSearchField from '../components/LotSearchField.vue'
 
@@ -10,8 +12,10 @@ const toast = useToast()
 const responsable = useResponsable()
 
 const recents = ref([])
+const codisLot = ref({}) // lot_id -> codi, per mostrar-lo en comptes de l'id
 const loading = ref(true)
 const enviant = ref(false)
+const descarregant = ref(false)
 
 const form = ref({
   tipus: 'canvi_lot',
@@ -29,6 +33,17 @@ async function carregar() {
   loading.value = true
   try {
     recents.value = (await api.incidencies()).slice(0, 8)
+    const idsUnics = [...new Set(recents.value.map((i) => i.lot_afectat_id).filter((id) => id != null))]
+    const resolts = await Promise.all(
+      idsUnics.map(async (id) => {
+        try {
+          return [id, (await api.obtenirLot(id)).codi]
+        } catch {
+          return [id, `#${id}`]
+        }
+      }),
+    )
+    codisLot.value = Object.fromEntries(resolts)
   } catch (err) {
     toast.error(err.detail || err.message)
   } finally {
@@ -65,6 +80,18 @@ async function enviar() {
     toast.error(err instanceof ApiError ? err.detail : 'Error de connexió')
   } finally {
     enviant.value = false
+  }
+}
+
+async function exportar() {
+  descarregant.value = true
+  try {
+    const full = await fullIncidencies()
+    await baixarExcel([full], `turon-incidencies-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  } catch (err) {
+    toast.error('No s\'ha pogut generar l\'Excel: ' + (err.detail || err.message))
+  } finally {
+    descarregant.value = false
   }
 }
 </script>
@@ -114,11 +141,21 @@ async function enviar() {
     </form>
 
     <section>
-      <h2 class="mb-2 text-sm font-semibold text-slate-500">Últimes incidències</h2>
+      <div class="mb-2 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-500">Últimes incidències</h2>
+        <button
+          type="button"
+          :disabled="descarregant"
+          class="text-sm font-medium text-indigo-600 disabled:opacity-50"
+          @click="exportar"
+        >
+          {{ descarregant ? 'Generant…' : '📥 Descarregar Excel' }}
+        </button>
+      </div>
       <p v-if="loading" class="text-sm text-slate-400">Carregant…</p>
       <ul v-else class="space-y-2">
         <li v-for="i in recents" :key="i.id" class="rounded-xl bg-white p-3 text-sm shadow-sm">
-          <div class="font-medium">{{ i.tipus }} — lot #{{ i.lot_afectat_id }}</div>
+          <div class="font-medium">{{ i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}</div>
           <div class="text-slate-500">{{ i.motiu }}</div>
           <div class="text-slate-400">{{ i.responsable }} · {{ new Date(i.data_hora).toLocaleString() }}</div>
         </li>
