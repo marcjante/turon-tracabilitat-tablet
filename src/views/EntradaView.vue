@@ -126,12 +126,12 @@ async function exportar() {
           <option value="" disabled>Selecciona…</option>
           <option v-for="p in proveidors" :key="p.id" :value="p.id">{{ p.nom }}</option>
         </select>
-        <button type="button" class="mt-2 text-sm font-medium text-indigo-600" @click="mostrarNouProveidor = !mostrarNouProveidor">
+        <button type="button" class="mt-2 text-sm font-medium text-turon-black" @click="mostrarNouProveidor = !mostrarNouProveidor">
           + Proveïdor nou
         </button>
         <div v-if="mostrarNouProveidor" class="mt-2 flex gap-2">
           <input v-model="novaProveidorNom" type="text" placeholder="Nom del proveïdor" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
-          <button type="button" class="shrink-0 rounded-lg bg-indigo-600 px-4 text-white" @click="crearProveidorRapid">Afegir</button>
+          <button type="button" class="shrink-0 rounded-lg bg-turon-black px-4 text-white" @click="crearProveidorRapid">Afegir</button>
         </div>
       </FormField>
 
@@ -158,7 +158,7 @@ async function exportar() {
         <textarea v-model="form.observacions" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
       </FormField>
 
-      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-indigo-600 py-3 text-base font-semibold text-white disabled:opacity-50">
+      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-turon-black py-3 text-base font-semibold text-white disabled:opacity-50">
         {{ enviant ? 'Registrant…' : 'Registrar entrada' }}
       </button>
     </form>
@@ -169,7 +169,7 @@ async function exportar() {
         <button
           type="button"
           :disabled="descarregant"
-          class="text-sm font-medium text-indigo-600 disabled:opacity-50"
+          class="text-sm font-medium text-turon-black disabled:opacity-50"
           @click="exportar"
         >
           {{ descarregant ? 'Generant…' : '📥 Descarregar Excel' }}

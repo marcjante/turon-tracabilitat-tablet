@@ -187,7 +187,7 @@ async function exportar() {
         <textarea v-model="form.observacions" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
       </FormField>
 
-      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-indigo-600 py-3 text-base font-semibold text-white disabled:opacity-50">
+      <button type="submit" :disabled="enviant" class="w-full rounded-xl bg-turon-black py-3 text-base font-semibold text-white disabled:opacity-50">
         {{ enviant ? 'Registrant…' : 'Registrar producció' }}
       </button>
     </form>
@@ -198,7 +198,7 @@ async function exportar() {
         <button
           type="button"
           :disabled="descarregant"
-          class="text-sm font-medium text-indigo-600 disabled:opacity-50"
+          class="text-sm font-medium text-turon-black disabled:opacity-50"
           @click="exportar"
         >
           {{ descarregant ? 'Generant…' : '📥 Descarregar Excel' }}

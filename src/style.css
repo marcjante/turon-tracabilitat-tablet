@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Paleta de la marca Turòn: negre + degradat daurat de l'eslogan del
+   web oficial (flecaipastisseriaturon.com), en comptes de l'indigo
+   genèric per defecte. */
+@theme {
+  --font-heading: 'Roboto', sans-serif;
+  --font-body: 'Open Sans', sans-serif;
+  --color-turon-gold-light: #fceabb;
+  --color-turon-gold: #ffba00;
+  --color-turon-black: #1a1a1a;
+}
+
 html, body, #app {
   height: 100%;
 }
@@ -7,6 +18,11 @@ html, body, #app {
 body {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, .font-heading {
+  font-family: var(--font-heading);
 }
 
 /* Objetivo táctil mínimo cómodo en tablet (~44px), sin repetirlo en

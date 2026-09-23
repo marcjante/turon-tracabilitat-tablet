@@ -72,7 +72,7 @@ async function anular() {
         <button
           type="button"
           :disabled="!lotId || cercant"
-          class="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          class="w-full rounded-xl bg-turon-black py-3 text-sm font-semibold text-white disabled:opacity-50"
           @click="cercarTraca('enrere')"
         >
           ← Traça enrere
@@ -80,7 +80,7 @@ async function anular() {
         <button
           type="button"
           :disabled="!lotId || cercant"
-          class="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          class="w-full rounded-xl bg-turon-black py-3 text-sm font-semibold text-white disabled:opacity-50"
           @click="cercarTraca('endavant')"
         >
           Traça endavant →

@@ -143,7 +143,7 @@ async function eliminarComponent(id) {
         :key="t.key"
         type="button"
         class="shrink-0 rounded-full px-4 py-2 text-sm font-medium"
-        :class="tabActiu === t.key ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600'"
+        :class="tabActiu === t.key ? 'bg-turon-black text-white' : 'bg-white text-slate-600'"
         @click="tabActiu = t.key"
       >
         {{ t.label }}
@@ -157,7 +157,7 @@ async function eliminarComponent(id) {
       <div v-if="tabActiu === 'ingredients'" class="space-y-4">
         <div class="flex gap-2 rounded-2xl bg-white p-4 shadow-sm">
           <input v-model="nouIngredient" type="text" placeholder="Nom de l'ingredient" class="w-full rounded-lg border border-slate-300 px-3 py-2" @keyup.enter="crearIngredient" />
-          <button type="button" class="shrink-0 rounded-lg bg-indigo-600 px-4 text-white" @click="crearIngredient">Afegir</button>
+          <button type="button" class="shrink-0 rounded-lg bg-turon-black px-4 text-white" @click="crearIngredient">Afegir</button>
         </div>
         <ul class="space-y-2">
           <li v-for="i in ingredients" :key="i.id" class="flex items-center justify-between rounded-xl bg-white p-3 text-sm shadow-sm">
@@ -170,7 +170,7 @@ async function eliminarComponent(id) {
       <div v-if="tabActiu === 'proveidors'" class="space-y-4">
         <div class="flex gap-2 rounded-2xl bg-white p-4 shadow-sm">
           <input v-model="nouProveidor" type="text" placeholder="Nom del proveïdor" class="w-full rounded-lg border border-slate-300 px-3 py-2" @keyup.enter="crearProveidor" />
-          <button type="button" class="shrink-0 rounded-lg bg-indigo-600 px-4 text-white" @click="crearProveidor">Afegir</button>
+          <button type="button" class="shrink-0 rounded-lg bg-turon-black px-4 text-white" @click="crearProveidor">Afegir</button>
         </div>
         <ul class="space-y-2">
           <li v-for="p in proveidors" :key="p.id" class="rounded-xl bg-white p-3 text-sm shadow-sm">
@@ -194,7 +194,7 @@ async function eliminarComponent(id) {
           <FormField label="Prefix del lot" required hint="Per exemple: PPE, MEL, CAR">
             <input v-model="novaElaboracio.prefix_lot" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
           </FormField>
-          <button type="button" class="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white" @click="crearElaboracioForm">
+          <button type="button" class="w-full rounded-xl bg-turon-black py-3 text-sm font-semibold text-white" @click="crearElaboracioForm">
             Afegir elaboració
           </button>
         </div>
@@ -234,7 +234,7 @@ async function eliminarComponent(id) {
                 </template>
               </select>
             </FormField>
-            <button type="button" class="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white" @click="afegirComponent">
+            <button type="button" class="w-full rounded-xl bg-turon-black py-3 text-sm font-semibold text-white" @click="afegirComponent">
               Afegir component
             </button>
 

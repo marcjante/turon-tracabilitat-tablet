@@ -50,9 +50,9 @@ function canviar() {
       {{ label }}<span v-if="required" class="text-red-500"> *</span>
     </label>
 
-    <div v-if="seleccionat" class="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
-      <span class="font-medium text-indigo-900">{{ seleccionat.codi }}</span>
-      <button type="button" class="text-sm font-medium text-indigo-600" @click="canviar">Canviar</button>
+    <div v-if="seleccionat" class="flex items-center justify-between rounded-lg border border-turon-gold bg-turon-gold-light/30 px-3 py-2">
+      <span class="font-medium text-turon-black">{{ seleccionat.codi }}</span>
+      <button type="button" class="text-sm font-medium text-turon-black" @click="canviar">Canviar</button>
     </div>
     <div v-else class="space-y-2">
       <div class="flex gap-2">

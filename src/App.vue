@@ -6,7 +6,6 @@ const route = useRoute()
 const router = useRouter()
 
 const titles = {
-  home: 'Turon — Traçabilitat',
   entrades: 'Entrada de matèries primeres',
   'lots-en-us': 'Lots en ús',
   semielaborats: 'Producció de semielaborats',
@@ -18,20 +17,22 @@ const titles = {
 </script>
 
 <template>
-  <div class="min-h-full bg-slate-100">
+  <div class="min-h-full bg-[#faf6ee]">
     <ToastHost />
-    <header class="sticky top-0 z-40 flex items-center gap-3 bg-white px-4 py-3 shadow-sm">
+    <header
+      v-if="route.name !== 'home'"
+      class="sticky top-0 z-40 flex items-center gap-3 border-b-2 border-turon-gold bg-white px-4 py-3 shadow-sm"
+    >
       <button
-        v-if="route.name !== 'home'"
         type="button"
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl active:bg-slate-200"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-turon-black text-xl text-white active:opacity-80"
         @click="router.push({ name: 'home' })"
       >
         ←
       </button>
-      <h1 class="truncate text-lg font-semibold text-slate-900">{{ titles[route.name] || 'Turon' }}</h1>
+      <h1 class="font-heading truncate text-lg font-bold text-turon-black">{{ titles[route.name] || 'Turòn' }}</h1>
     </header>
-    <main class="mx-auto max-w-2xl px-4 py-4 pb-16">
+    <main class="mx-auto max-w-2xl px-4 py-4 pb-16" :class="{ 'pt-0': route.name === 'home' }">
       <router-view />
     </main>
   </div>

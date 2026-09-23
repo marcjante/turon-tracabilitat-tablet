@@ -31,25 +31,36 @@ const items = [
 </script>
 
 <template>
-  <div class="grid grid-cols-2 gap-3">
-    <router-link
-      v-for="item in items"
-      :key="item.to"
-      :to="{ name: item.to }"
-      class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-white p-5 text-center shadow-sm active:bg-slate-50"
-    >
-      <span class="text-4xl">{{ item.emoji }}</span>
-      <span class="text-base font-semibold text-slate-900">{{ item.label }}</span>
-      <span class="text-xs text-slate-500">{{ item.hint }}</span>
-    </router-link>
-  </div>
+  <div>
+    <div class="from-turon-gold-light to-turon-gold -mx-4 -mt-4 mb-6 rounded-b-[2rem] bg-gradient-to-br px-6 pt-10 pb-8 text-center shadow-md">
+      <img src="/turon-logo.png" alt="Fleca i Pastisseria Turòn" class="mx-auto h-16 w-auto drop-shadow-sm sm:h-20" />
+      <p class="font-heading text-turon-black/70 mt-3 text-xs font-bold tracking-[0.2em] uppercase">
+        Traçabilitat de l'obrador
+      </p>
+    </div>
 
-  <button
-    type="button"
-    :disabled="descarregant"
-    class="mt-4 w-full rounded-2xl bg-white p-4 text-center text-sm font-semibold text-indigo-600 shadow-sm active:bg-slate-50 disabled:opacity-50"
-    @click="exportarTot"
-  >
-    {{ descarregant ? 'Generant l\'Excel…' : '📊 Descarregar tota la traçabilitat (Excel)' }}
-  </button>
+    <div class="grid grid-cols-2 gap-3">
+      <router-link
+        v-for="item in items"
+        :key="item.to"
+        :to="{ name: item.to }"
+        class="active:bg-turon-gold-light/20 flex flex-col items-center gap-2 rounded-2xl border border-black/5 bg-white p-5 text-center shadow-sm transition active:scale-[0.98]"
+      >
+        <span class="from-turon-gold-light to-turon-gold flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br text-3xl">
+          {{ item.emoji }}
+        </span>
+        <span class="font-heading text-turon-black text-base font-bold">{{ item.label }}</span>
+        <span class="text-xs text-black/50">{{ item.hint }}</span>
+      </router-link>
+    </div>
+
+    <button
+      type="button"
+      :disabled="descarregant"
+      class="bg-turon-black mt-4 flex w-full items-center justify-center gap-2 rounded-2xl p-4 text-center text-sm font-bold text-white shadow-sm active:opacity-90 disabled:opacity-50"
+      @click="exportarTot"
+    >
+      {{ descarregant ? 'Generant l\'Excel…' : '📊 Descarregar tota la traçabilitat (Excel)' }}
+    </button>
+  </div>
 </template>
