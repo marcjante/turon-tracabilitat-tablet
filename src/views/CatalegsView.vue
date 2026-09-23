@@ -5,6 +5,7 @@ import { repo } from '../db/repo.js'
 import { db, obtenirDeviceId } from '../db/index.js'
 import { refrescarTot, ultimaSincronitzacio, estatSincronitzacio } from '../db/sync.js'
 import { llistarCua, reintentar, descartar, estatCua } from '../db/queue.js'
+import { exportarBackup, llegirFitxerBackup, importarBackup, BackupInvalid } from '../db/backup.js'
 import { useOnlineStatus } from '../useOnlineStatus.js'
 import { useToast } from '../toast.js'
 import FormField from '../components/FormField.vue'
@@ -206,6 +207,8 @@ function formatarMida(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+const pendentsActuals = computed(() => cuaItems.value.filter((i) => i.status === 'pending').length)
+
 const persistent = ref(null)
 async function solicitarPersistencia() {
   if (!navigator.storage?.persist) return
@@ -213,6 +216,60 @@ async function solicitarPersistencia() {
   toast[persistent.value ? 'success' : 'error'](
     persistent.value ? 'Emmagatzematge protegit' : 'El navegador no ho ha concedit',
   )
+}
+
+// --- Còpia de seguretat (fase 9) ---
+const exportant = ref(false)
+const fitxerBackup = ref(null)
+const backupValidat = ref(null)
+const errorBackup = ref('')
+const important = ref(false)
+const inputFitxer = ref(null)
+
+async function exportar() {
+  exportant.value = true
+  try {
+    await exportarBackup()
+    toast.success('Còpia de seguretat descarregada')
+  } catch (err) {
+    toast.error('No s\'ha pogut generar la còpia: ' + err.message)
+  } finally {
+    exportant.value = false
+  }
+}
+
+async function triarFitxer(event) {
+  const file = event.target.files?.[0]
+  backupValidat.value = null
+  errorBackup.value = ''
+  if (!file) return
+  try {
+    backupValidat.value = await llegirFitxerBackup(file)
+  } catch (err) {
+    errorBackup.value = err instanceof BackupInvalid ? err.message : 'No s\'ha pogut llegir el fitxer'
+  }
+}
+
+function cancelarImportacio() {
+  backupValidat.value = null
+  errorBackup.value = ''
+  if (inputFitxer.value) inputFitxer.value.value = ''
+}
+
+async function confirmarImportacio() {
+  if (!backupValidat.value) return
+  important.value = true
+  try {
+    await importarBackup(backupValidat.value)
+    toast.success('Còpia de seguretat restaurada')
+    cancelarImportacio()
+    await carregarEstatSync()
+    await carregar()
+  } catch (err) {
+    toast.error('No s\'ha pogut importar: ' + err.message)
+  } finally {
+    important.value = false
+  }
 }
 
 watch(tabActiu, (nou) => {
@@ -408,6 +465,47 @@ watch(tabActiu, (nou) => {
           <button type="button" class="mt-3 w-full rounded-xl border-2 border-turon-black py-2 text-sm font-bold text-turon-black" @click="solicitarPersistencia">
             🔒 Protegir dades locals d'esborrat automàtic
           </button>
+        </div>
+
+        <div class="rounded-2xl bg-white p-4 text-sm shadow-sm">
+          <p class="mb-2 text-base font-bold text-slate-600">💾 Còpia de seguretat</p>
+
+          <button
+            type="button"
+            :disabled="exportant"
+            class="w-full rounded-xl bg-turon-black py-3 text-sm font-bold text-white disabled:opacity-50"
+            @click="exportar"
+          >
+            {{ exportant ? 'Generant…' : '⬇️ Descarregar còpia de seguretat' }}
+          </button>
+
+          <div class="mt-4 border-t border-slate-100 pt-4">
+            <label class="block">
+              <span class="mb-1.5 block text-base font-bold text-slate-800">⬆️ Restaurar des d'una còpia</span>
+              <input ref="inputFitxer" type="file" accept="application/json" class="w-full text-sm" @change="triarFitxer" />
+            </label>
+
+            <p v-if="errorBackup" class="mt-2 text-sm font-bold text-red-600">{{ errorBackup }}</p>
+
+            <div v-if="backupValidat" class="mt-3 space-y-2 rounded-xl border-2 border-red-300 bg-red-50 p-3">
+              <p class="font-bold text-red-800">⚠️ Això substituirà totes les dades locals d'aquest dispositiu</p>
+              <p class="text-slate-600">Còpia del {{ new Date(backupValidat.dataExportacio).toLocaleString() }}</p>
+              <p v-if="pendentsActuals > 0" class="font-bold text-red-800">
+                Hi ha {{ pendentsActuals }} canvi{{ pendentsActuals === 1 ? '' : 's' }} pendent{{ pendentsActuals === 1 ? '' : 's' }} de sincronitzar en aquest dispositiu que es perdrien.
+              </p>
+              <div class="flex gap-2">
+                <button type="button" class="flex-1 rounded-lg bg-slate-200 py-2 text-sm font-bold" @click="cancelarImportacio">Cancel·lar</button>
+                <button
+                  type="button"
+                  :disabled="important"
+                  class="flex-1 rounded-lg bg-red-600 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  @click="confirmarImportacio"
+                >
+                  {{ important ? 'Restaurant…' : 'Sí, substituir-ho tot' }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </template>

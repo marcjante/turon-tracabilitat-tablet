@@ -94,10 +94,23 @@ Amb Playwright, contra l'API real de Railway: obrir un lot en ús offline + crea
 
 Amb Playwright: la pestanya mostra última sincronització, dispositiu i espai usat amb dades reals; un element de cua en estat "error" mostra els botons Reintentar/Descartar, i Descartar l'elimina de veritat de `syncQueue`.
 
-## Pendent (properes fases, no implementat encara)
+## Fase 9 — Còpia de seguretat local (completada)
 
-- **Fase 7**: sincronització incremental (`updated_since`) en comptes del pull complet actual — no cal encara pel volum d'un sol obrador, però evitaria baixar-ho tot cada vegada.
-- **Fase 8**: conflictes reals entre dispositius (dos tablets modificant el mateix registre) — encara no s'ha donat el cas perquè totes les escriptures offline són de creació (o, per a `tancar_lot_en_us`, una transició d'estat idempotent), no edició lliure.
-- **Fase 9**: exportació/importació de còpia de seguretat local.
+**Què cobreix**: exportar tot IndexedDB a un fitxer JSON descarregable, i restaurar-lo. Al bloc "💾 Còpia de seguretat" de la pestanya Sincronització.
 
-Aquest document s'ampliarà amb una secció per fase a mesura que es completin.
+### Peces
+
+- **`src/db/backup.js`**: `exportarBackup()` genera `{versioEsquema, dataExportacio, deviceId, dades: {...totes les taules}}` i el descarrega com a `turon-backup-AAAA-MM-DD.json`. `llegirFitxerBackup(file)` valida format i versió abans de mostrar res (JSON vàlid, `versioEsquema` coneguda, totes les taules esperades presents) — si falla, ho diu clarament i no toca les dades locals.
+- **Confirmació explícita abans de restaurar** (`CatalegsView.vue`): important substitueix **totes** les taules locals, incloent-hi `syncQueue` — si el dispositiu té operacions pendents de sincronitzar en aquell moment, s'avisa explícitament de quantes se'n perdrien abans de deixar confirmar, seguint el mateix criteri que ja aplica `descartar()` a la fase 6 (mai esborrar en silenci una operació pendent).
+- **Versionat**: `versioEsquema` és un enter independent del número de versió de Dexie — permet detectar un backup incompatible generat per una versió futura/antiga de l'app sense haver de parsejar-lo primer.
+
+### Verificat
+
+Amb Playwright: exportar → esborrar un registre localment (simulant pèrdua de dades) → recarregar l'app → importar el backup descarregat → el registre torna a ser-hi, amb el mateix id.
+
+## Pendent (no implementat)
+
+- **Fase 7 (sincronització incremental)**: es va avaluar i **es descarta per ara, deliberadament**. Fer-ho bé requereix `updated_at` a totes les taules (no només `lot`, que ja el necessitava per a `client_id`) i, més important, una estratègia de tombstones per als esborrats reals (`DELETE /receptes/{id}` avui esborra la fila de veritat — sense un registre de "això s'ha esborrat", un dispositiu que ja tenia la recepta en local mai sabria que ha de desaparèixer). És una quantitat de feina comparable a una fase sencera per a un benefici (menys dades baixades) que no aporta res amb el volum d'un sol obrador. Es recomana revisar-ho si l'aplicació creix a múltiples obradors/tablets amb catàlegs grans.
+- **Fase 8 (conflictes reals entre dispositius)**: **no s'ha implementat perquè, amb les escriptures actuals, no hi ha cap operació on pugui passar de veritat.** Totes són creacions (idempotents per `client_id`) o, en el cas de `tancar_lot_en_us`, una transició d'estat idempotent per valor (`fi`). No hi ha cap "editar un camp existent" en tota l'aplicació — ni online ni offline — així que no hi ha cap escenari real de "dos dispositius han canviat el mateix camp de manera diferent" per resoldre. Si en el futur s'afegeix edició lliure (p. ex. corregir el nom d'un ingredient ja creat), **aleshores** caldrà `updated_at` + detecció de conflicte abans de sobreescriure — documentar-ho aquí seria prematur ara mateix.
+
+Aquest document s'ampliarà si això canvia.
