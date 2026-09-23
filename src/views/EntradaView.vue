@@ -6,6 +6,8 @@ import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
 import { fullEntrades } from '../utils/exportFulls.js'
 import FormField from '../components/FormField.vue'
+import Spinner from '../components/Spinner.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const toast = useToast()
 const responsable = useResponsable()
@@ -193,14 +195,16 @@ const etiquetaData = computed(() =>
           {{ descarregant ? 'Generant…' : '📥 Excel' }}
         </button>
       </div>
-      <p v-if="loading" class="text-base text-slate-400">Carregant…</p>
-      <ul v-else class="space-y-2">
-        <li v-for="e in recents" :key="e.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
-          <div class="font-bold">{{ e.codi }}</div>
-          <div class="text-slate-500">Caduca {{ e.caducitat }} · {{ e.responsable }}</div>
-        </li>
-        <li v-if="!recents.length" class="text-base text-slate-400">Encara no hi ha res apuntat.</li>
-      </ul>
+      <Spinner v-if="loading" />
+      <template v-else>
+        <ul v-if="recents.length" class="space-y-2">
+          <li v-for="e in recents" :key="e.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
+            <div class="font-bold">{{ e.codi }}</div>
+            <div class="text-slate-500">Caduca {{ e.caducitat }} · {{ e.responsable }}</div>
+          </li>
+        </ul>
+        <EmptyState v-else text="Encara no hi ha res apuntat." />
+      </template>
     </section>
   </div>
 </template>

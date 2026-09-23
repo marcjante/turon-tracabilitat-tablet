@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '../api.js'
 import { useToast } from '../toast.js'
 import FormField from '../components/FormField.vue'
+import Spinner from '../components/Spinner.vue'
 
 const toast = useToast()
 
@@ -150,13 +151,13 @@ async function eliminarComponent(id) {
       </button>
     </div>
 
-    <p v-if="loading" class="text-sm text-slate-400">Carregant…</p>
+    <Spinner v-if="loading" />
 
     <template v-else>
       <!-- Ingredients -->
       <div v-if="tabActiu === 'ingredients'" class="space-y-4">
         <div class="flex gap-2 rounded-2xl bg-white p-4 shadow-sm">
-          <input v-model="nouIngredient" type="text" placeholder="Nom de l'ingredient" class="w-full rounded-lg border border-slate-300 px-3 py-2" @keyup.enter="crearIngredient" />
+          <input v-model="nouIngredient" type="text" placeholder="Nom de l'ingredient" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" @keyup.enter="crearIngredient" />
           <button type="button" class="shrink-0 rounded-lg bg-turon-black px-4 text-white" @click="crearIngredient">Afegir</button>
         </div>
         <ul class="space-y-2">
@@ -169,7 +170,7 @@ async function eliminarComponent(id) {
       <!-- Proveïdors -->
       <div v-if="tabActiu === 'proveidors'" class="space-y-4">
         <div class="flex gap-2 rounded-2xl bg-white p-4 shadow-sm">
-          <input v-model="nouProveidor" type="text" placeholder="Nom del proveïdor" class="w-full rounded-lg border border-slate-300 px-3 py-2" @keyup.enter="crearProveidor" />
+          <input v-model="nouProveidor" type="text" placeholder="Nom del proveïdor" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" @keyup.enter="crearProveidor" />
           <button type="button" class="shrink-0 rounded-lg bg-turon-black px-4 text-white" @click="crearProveidor">Afegir</button>
         </div>
         <ul class="space-y-2">
@@ -183,16 +184,16 @@ async function eliminarComponent(id) {
       <div v-if="tabActiu === 'elaboracions'" class="space-y-4">
         <div class="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
           <FormField label="Nom" required>
-            <input v-model="novaElaboracio.nom" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+            <input v-model="novaElaboracio.nom" type="text" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" />
           </FormField>
           <FormField label="Tipus" required>
-            <select v-model="novaElaboracio.tipus" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+            <select v-model="novaElaboracio.tipus" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2">
               <option value="semielaborat">Semielaborat</option>
               <option value="producte">Producte</option>
             </select>
           </FormField>
           <FormField label="Prefix del lot" required hint="Per exemple: PPE, MEL, CAR">
-            <input v-model="novaElaboracio.prefix_lot" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+            <input v-model="novaElaboracio.prefix_lot" type="text" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" />
           </FormField>
           <button type="button" class="w-full rounded-xl bg-turon-black py-3 text-sm font-semibold text-white" @click="crearElaboracioForm">
             Afegir elaboració
@@ -210,7 +211,7 @@ async function eliminarComponent(id) {
       <div v-if="tabActiu === 'receptes'" class="space-y-4">
         <div class="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
           <FormField label="Elaboració" required>
-            <select v-model="elaboracioSeleccionada" class="w-full rounded-lg border border-slate-300 px-3 py-2" @change="carregarReceptes">
+            <select v-model="elaboracioSeleccionada" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2" @change="carregarReceptes">
               <option value="" disabled>Selecciona…</option>
               <option v-for="e in elaboracions" :key="e.id" :value="e.id">{{ e.nom }} ({{ e.tipus }})</option>
             </select>
@@ -224,7 +225,7 @@ async function eliminarComponent(id) {
               </div>
             </FormField>
             <FormField label="Component" required>
-              <select v-model="receptaComponentId" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+              <select v-model="receptaComponentId" class="w-full rounded-lg border-2 border-slate-300 px-3 py-2">
                 <option value="" disabled>Selecciona…</option>
                 <template v-if="receptaComponentTipus === 'ingredient'">
                   <option v-for="i in ingredients" :key="i.id" :value="i.id">{{ i.nom }}</option>

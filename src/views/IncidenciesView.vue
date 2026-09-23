@@ -7,6 +7,8 @@ import { baixarExcel } from '../utils/baixarExcel.js'
 import { fullIncidencies } from '../utils/exportFulls.js'
 import FormField from '../components/FormField.vue'
 import LotSearchField from '../components/LotSearchField.vue'
+import Spinner from '../components/Spinner.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const toast = useToast()
 const responsable = useResponsable()
@@ -174,35 +176,37 @@ async function exportar() {
           {{ descarregant ? 'Generant…' : '📥 Excel' }}
         </button>
       </div>
-      <p v-if="loading" class="text-base text-slate-400">Carregant…</p>
-      <ul v-else class="space-y-2">
-        <li v-for="i in recents" :key="i.id" class="overflow-hidden rounded-xl bg-white shadow-sm">
-          <button
-            type="button"
-            class="flex w-full items-center justify-between gap-2 p-3 text-left text-base active:bg-slate-50"
-            @click="toggleExpandir(i.id)"
-          >
-            <div>
-              <div class="font-bold">
-                {{ tipusInfo[i.tipus]?.e }} {{ tipusInfo[i.tipus]?.l || i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}
+      <Spinner v-if="loading" />
+      <template v-else>
+        <ul v-if="recents.length" class="space-y-2">
+          <li v-for="i in recents" :key="i.id" class="overflow-hidden rounded-xl bg-white shadow-sm">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 p-3 text-left text-base active:bg-slate-50"
+              @click="toggleExpandir(i.id)"
+            >
+              <div>
+                <div class="font-bold">
+                  {{ tipusInfo[i.tipus]?.e }} {{ tipusInfo[i.tipus]?.l || i.tipus }} — lot {{ codisLot[i.lot_afectat_id] || `#${i.lot_afectat_id}` }}
+                </div>
+                <div class="text-slate-500">{{ i.motiu }}</div>
+                <div class="text-slate-400">{{ i.responsable }} · {{ new Date(i.data_hora).toLocaleString() }}</div>
               </div>
-              <div class="text-slate-500">{{ i.motiu }}</div>
-              <div class="text-slate-400">{{ i.responsable }} · {{ new Date(i.data_hora).toLocaleString() }}</div>
+              <span class="shrink-0 text-xl text-slate-400 transition-transform" :class="{ 'rotate-180': expandit === i.id }">▼</span>
+            </button>
+            <div v-if="expandit === i.id" class="space-y-1 border-t border-slate-100 bg-slate-50 p-3 text-base">
+              <div v-if="i.lot_anterior_id"><span class="font-bold">Lot anterior:</span> {{ codisLot[i.lot_anterior_id] || `#${i.lot_anterior_id}` }}</div>
+              <div v-if="i.lot_nou_id"><span class="font-bold">Lot nou:</span> {{ codisLot[i.lot_nou_id] || `#${i.lot_nou_id}` }}</div>
+              <div v-if="i.mesura_adoptada"><span class="font-bold">Què s'ha fet:</span> {{ i.mesura_adoptada }}</div>
+              <div>
+                <span class="font-bold">Comprovació:</span>
+                {{ i.comprovacio ? `✅ Sí${i.comprovat_per ? ' — ' + i.comprovat_per : ''}` : '❌ Encara no' }}
+              </div>
             </div>
-            <span class="shrink-0 text-xl text-slate-400">{{ expandit === i.id ? '▲' : '▼' }}</span>
-          </button>
-          <div v-if="expandit === i.id" class="space-y-1 border-t border-slate-100 bg-slate-50 p-3 text-base">
-            <div v-if="i.lot_anterior_id"><span class="font-bold">Lot anterior:</span> {{ codisLot[i.lot_anterior_id] || `#${i.lot_anterior_id}` }}</div>
-            <div v-if="i.lot_nou_id"><span class="font-bold">Lot nou:</span> {{ codisLot[i.lot_nou_id] || `#${i.lot_nou_id}` }}</div>
-            <div v-if="i.mesura_adoptada"><span class="font-bold">Què s'ha fet:</span> {{ i.mesura_adoptada }}</div>
-            <div>
-              <span class="font-bold">Comprovació:</span>
-              {{ i.comprovacio ? `✅ Sí${i.comprovat_per ? ' — ' + i.comprovat_per : ''}` : '❌ Encara no' }}
-            </div>
-          </div>
-        </li>
-        <li v-if="!recents.length" class="text-base text-slate-400">Encara no hi ha res apuntat.</li>
-      </ul>
+          </li>
+        </ul>
+        <EmptyState v-else emoji="🎉" text="Encara no hi ha res apuntat." />
+      </template>
     </section>
   </div>
 </template>

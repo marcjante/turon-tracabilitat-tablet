@@ -5,6 +5,8 @@ import { useToast } from '../toast.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
 import { fullLotsEnUs } from '../utils/exportFulls.js'
 import FormField from '../components/FormField.vue'
+import Spinner from '../components/Spinner.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const toast = useToast()
 
@@ -143,19 +145,21 @@ async function exportar() {
           {{ descarregant ? 'Generant…' : '📥 Excel' }}
         </button>
       </div>
-      <p v-if="loading" class="text-base text-slate-400">Carregant…</p>
-      <ul v-else class="space-y-2">
-        <li v-for="o in oberts" :key="o.id" class="flex items-center justify-between rounded-xl bg-white p-3 text-base shadow-sm">
-          <div>
-            <div class="font-bold">{{ ingredientNom(o.ingredient_id) }}</div>
-            <div class="text-slate-500">des de {{ new Date(o.inici).toLocaleString() }}</div>
-          </div>
-          <button type="button" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold active:bg-slate-200" @click="tancar(o.id)">
-            🔚 S'ha acabat
-          </button>
-        </li>
-        <li v-if="!oberts.length" class="text-base text-slate-400">Ara mateix no hi ha res obert.</li>
-      </ul>
+      <Spinner v-if="loading" />
+      <template v-else>
+        <ul v-if="oberts.length" class="space-y-2">
+          <li v-for="o in oberts" :key="o.id" class="flex items-center justify-between rounded-xl bg-white p-3 text-base shadow-sm">
+            <div>
+              <div class="font-bold">{{ ingredientNom(o.ingredient_id) }}</div>
+              <div class="text-slate-500">des de {{ new Date(o.inici).toLocaleString() }}</div>
+            </div>
+            <button type="button" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold active:bg-slate-200" @click="tancar(o.id)">
+              🔚 S'ha acabat
+            </button>
+          </li>
+        </ul>
+        <EmptyState v-else emoji="🫙" text="Ara mateix no hi ha res obert." />
+      </template>
     </section>
   </div>
 </template>

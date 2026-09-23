@@ -33,7 +33,11 @@ const titles = {
       <h1 class="font-heading truncate text-xl font-bold text-turon-black">{{ titles[route.name] || 'Turòn' }}</h1>
     </header>
     <main class="mx-auto max-w-2xl px-4 py-4 pb-16" :class="{ 'pt-0': route.name === 'home' }">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <Transition name="pagina" mode="out-in">
+          <component :is="Component" :key="route.path" />
+        </Transition>
+      </router-view>
     </main>
   </div>
 </template>

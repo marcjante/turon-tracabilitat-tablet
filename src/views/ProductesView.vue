@@ -6,6 +6,8 @@ import { useResponsable } from '../responsable.js'
 import { baixarExcel } from '../utils/baixarExcel.js'
 import { fullProductes } from '../utils/exportFulls.js'
 import FormField from '../components/FormField.vue'
+import Spinner from '../components/Spinner.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const toast = useToast()
 const responsable = useResponsable()
@@ -211,14 +213,16 @@ async function exportar() {
           {{ descarregant ? 'Generant…' : '📥 Excel' }}
         </button>
       </div>
-      <p v-if="loading" class="text-base text-slate-400">Carregant…</p>
-      <ul v-else class="space-y-2">
-        <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
-          <div class="font-bold">{{ r.codi }} — {{ elaboracioNom(r.elaboracio_id) }}</div>
-          <div class="text-slate-500">{{ r.quantitat }} {{ r.unitat }} · {{ r.torn }} · {{ r.responsable }}</div>
-        </li>
-        <li v-if="!recents.length" class="text-base text-slate-400">Encara no hi ha res apuntat.</li>
-      </ul>
+      <Spinner v-if="loading" />
+      <template v-else>
+        <ul v-if="recents.length" class="space-y-2">
+          <li v-for="r in recents" :key="r.id" class="rounded-xl bg-white p-3 text-base shadow-sm">
+            <div class="font-bold">{{ r.codi }} — {{ elaboracioNom(r.elaboracio_id) }}</div>
+            <div class="text-slate-500">{{ r.quantitat }} {{ r.unitat }} · {{ r.torn }} · {{ r.responsable }}</div>
+          </li>
+        </ul>
+        <EmptyState v-else text="Encara no hi ha res apuntat." />
+      </template>
     </section>
   </div>
 </template>
